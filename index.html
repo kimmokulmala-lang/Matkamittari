@@ -103,6 +103,35 @@
   .message.success { color: #16a34a; }
   .message.error { color: #dc2626; }
   .message.sending { color: #2563eb; }
+
+  .debug-toggle {
+    background: none;
+    color: #64748b;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 8px;
+    margin-top: 18px;
+    text-decoration: underline;
+  }
+  .debug-panel {
+    display: none;
+    margin-top: 8px;
+    background: #0f172a;
+    border-radius: 10px;
+    padding: 12px;
+    max-height: 220px;
+    overflow-y: auto;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.72rem;
+    line-height: 1.5;
+  }
+  .debug-panel.open { display: block; }
+  .debug-panel .row { margin-bottom: 3px; white-space: pre-wrap; word-break: break-word; }
+  .debug-panel .lvl-info { color: #94a3b8; }
+  .debug-panel .lvl-ok { color: #4ade80; }
+  .debug-panel .lvl-warn { color: #fbbf24; }
+  .debug-panel .lvl-error { color: #f87171; }
+  .debug-panel .row .time { color: #475569; }
 </style>
 </head>
 <body>
@@ -127,12 +156,15 @@
   <button id="stopBtn" disabled>⏹ Lopeta ja lähetä</button>
 
   <div class="message" id="message"></div>
+
+  <button type="button" class="debug-toggle" id="debugToggle">🔧 Näytä virheloki</button>
+  <div class="debug-panel" id="debugPanel"></div>
 </div>
 
 <script>
 // ---------- ASETUKSET ----------
 // Vaihda tähän oma Google Apps Script -julkaisuosoitteesi (katso ohje.md)
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyJ6qhs23cNZ09d8Wu-sPLHIqsITNv6cIOaYjyNtgGwyR88CPIPdhpCP_sd4HUYtAUrHA/exec";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycb.../exec";
 // --------------------------------
 
 let watchId = null;
@@ -147,6 +179,62 @@ const startBtn = document.getElementById('startBtn');
 const stopBtn = document.getElementById('stopBtn');
 const luokkaEl = document.getElementById('luokka');
 const nimimerkkiEl = document.getElementById('nimimerkki');
+const debugPanelEl = document.getElementById('debugPanel');
+const debugToggleEl = document.getElementById('debugToggle');
+
+// ---------- VIRHELOKI ----------
+// Kirjoittaa aikaleimatun rivin näkyvään virhelokiin. Tason (level) mukaan
+// rivi väritetään: info=harmaa, ok=vihreä, warn=keltainen, error=punainen.
+function log(level, text) {
+  const time = new Date().toLocaleTimeString('fi-FI');
+  const row = document.createElement('div');
+  row.className = 'row lvl-' + level;
+  row.innerHTML = '<span class="time">' + time + '</span> ' + escapeHtml(text);
+  debugPanelEl.appendChild(row);
+  debugPanelEl.scrollTop = debugPanelEl.scrollHeight;
+  // Tulostetaan myös selaimen omaan konsoliin (F12 / etätarkastus), josta
+  // voi tarvittaessa kopioida koko virheen pinolla varustettuna.
+  const consoleFn = level === 'error' ? console.error : (level === 'warn' ? console.warn : console.log);
+  consoleFn('[Matkamittari]', text);
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+debugToggleEl.addEventListener('click', () => {
+  const open = debugPanelEl.classList.toggle('open');
+  debugToggleEl.textContent = open ? '🔧 Piilota virheloki' : '🔧 Näytä virheloki';
+});
+
+// Napataan myös odottamattomat JavaScript-virheet, joita koodi ei
+// itse osaa käsitellä (esim. kirjoitusvirhe koodissa) -- muuten sovellus
+// vain "hyytyy" ilman selitystä.
+window.addEventListener('error', (e) => {
+  log('error', 'Odottamaton virhe: ' + e.message + ' (rivi ' + e.lineno + ')');
+});
+window.addEventListener('unhandledrejection', (e) => {
+  log('error', 'Käsittelemätön virhe (Promise): ' + (e.reason && e.reason.message ? e.reason.message : e.reason));
+});
+
+// Perustarkistukset heti latauksessa, jotta yleisimmät ongelmat
+// näkyvät lokissa ennen kuin oppilas edes yrittää aloittaa mittausta.
+log('info', 'Sovellus ladattu.');
+if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+  log('error', 'Sivu ei ole HTTPS-osoitteessa (' + location.protocol + '). Sijainnin mittaus EI toimi ilman HTTPS:ää. Julkaise sivu esim. GitHub Pagesilla.');
+}
+if (!('geolocation' in navigator)) {
+  log('error', 'Tämä selain ei tue Geolocation-rajapintaa (navigator.geolocation puuttuu).');
+} else {
+  log('ok', 'Geolocation-rajapinta löytyy selaimesta.');
+}
+if (APPS_SCRIPT_URL.includes('AKfycb...')) {
+  log('warn', 'APPS_SCRIPT_URL näyttää olevan yhä esimerkkiarvo. Muista vaihtaa se omaan Apps Script -osoitteeseesi.');
+} else {
+  log('info', 'APPS_SCRIPT_URL on asetettu: ' + APPS_SCRIPT_URL);
+}
 
 // Haversine-kaava: laskee etäisyyden (metreinä) kahden GPS-pisteen välillä
 function haversineDistance(lat1, lon1, lat2, lon2) {
@@ -169,10 +257,12 @@ function updateDistanceDisplay() {
 
 function handlePosition(position) {
   const { latitude, longitude, accuracy } = position.coords;
+  log('info', 'Sijainti saatu: ' + latitude.toFixed(5) + ', ' + longitude.toFixed(5) + ' (tarkkuus ' + Math.round(accuracy) + ' m)');
 
   // Ohitetaan epätarkat mittaukset (yli 30m virhemarginaali) turhien hyppyjen välttämiseksi
   if (accuracy && accuracy > 30) {
     statusTextEl.textContent = "GPS-signaali heikko, odotetaan tarkempaa sijaintia...";
+    log('warn', 'Sijainti ohitettu: tarkkuus ' + Math.round(accuracy) + ' m huonompi kuin raja-arvo 30 m.');
     return;
   }
 
@@ -185,23 +275,47 @@ function handlePosition(position) {
     if (d > 1) {
       totalDistanceMeters += d;
       updateDistanceDisplay();
+      log('ok', 'Lisätty ' + d.toFixed(1) + ' m matkaan. Yhteensä nyt ' + (totalDistanceMeters / 1000).toFixed(3) + ' km.');
+    } else {
+      log('info', 'Liike ' + d.toFixed(2) + ' m ohitettu (todennäköisesti GPS-kohinaa paikallaan ollessa).');
     }
   }
   lastPosition = { latitude, longitude };
   statusTextEl.textContent = "Mittaus käynnissä...";
 }
 
+// Geolocation-API:n virhekoodit selväkielisiksi, jotta näkee heti onko kyse
+// esim. evätyistä luvista vai heikosta signaalista.
 function handleError(error) {
-  statusTextEl.textContent = "Sijaintivirhe: " + error.message;
+  let text;
+  switch (error.code) {
+    case error.PERMISSION_DENIED:
+      text = 'Sijaintilupa evätty. Tarkista puhelimen/selaimen asetuksista, että tälle sivustolle on annettu lupa käyttää sijaintia.';
+      break;
+    case error.POSITION_UNAVAILABLE:
+      text = 'Sijaintia ei saada juuri nyt (POSITION_UNAVAILABLE). Kokeile mennä ulos tai odota hetki.';
+      break;
+    case error.TIMEOUT:
+      text = 'Sijainnin haku aikakatkaistiin (TIMEOUT). GPS-signaali voi olla heikko sisätiloissa.';
+      break;
+    default:
+      text = 'Tuntematon sijaintivirhe (koodi ' + error.code + '): ' + error.message;
+  }
+  statusTextEl.textContent = "Sijaintivirhe: " + text;
+  log('error', 'Geolocation-virhe: ' + text);
 }
 
 function startTracking() {
+  log('info', 'Aloita mittaus -painiketta painettu.');
+
   if (!luokkaEl.value.trim() || !nimimerkkiEl.value.trim()) {
     showMessage("Täytä luokka ja nimimerkki ennen aloitusta.", "error");
+    log('warn', 'Aloitus estetty: luokka tai nimimerkki puuttuu.');
     return;
   }
   if (!('geolocation' in navigator)) {
     showMessage("Selain ei tue sijainnin mittausta.", "error");
+    log('error', 'Aloitus estetty: navigator.geolocation puuttuu tästä selaimesta.');
     return;
   }
 
@@ -210,11 +324,18 @@ function startTracking() {
   updateDistanceDisplay();
   showMessage("", "");
 
-  watchId = navigator.geolocation.watchPosition(handlePosition, handleError, {
-    enableHighAccuracy: true,
-    maximumAge: 0,
-    timeout: 15000
-  });
+  try {
+    watchId = navigator.geolocation.watchPosition(handlePosition, handleError, {
+      enableHighAccuracy: true,
+      maximumAge: 0,
+      timeout: 15000
+    });
+    log('ok', 'watchPosition käynnistetty (id ' + watchId + ').');
+  } catch (err) {
+    log('error', 'watchPosition-kutsu epäonnistui: ' + err.message);
+    showMessage("Mittausta ei voitu käynnistää.", "error");
+    return;
+  }
 
   tracking = true;
   startBtn.disabled = true;
@@ -225,15 +346,28 @@ function startTracking() {
 }
 
 async function stopTracking() {
+  log('info', 'Lopeta ja lähetä -painiketta painettu.');
+
   if (watchId !== null) {
     navigator.geolocation.clearWatch(watchId);
     watchId = null;
+    log('info', 'GPS-seuranta pysäytetty (clearWatch).');
   }
   tracking = false;
   stopBtn.disabled = true;
   statusTextEl.textContent = "";
 
   const km = (totalDistanceMeters / 1000).toFixed(3);
+
+  if (APPS_SCRIPT_URL.includes('AKfycb...')) {
+    showMessage("❌ APPS_SCRIPT_URL ei ole vielä asetettu koodissa.", "error");
+    log('error', 'Lähetys peruttu: APPS_SCRIPT_URL on yhä esimerkkiarvo. Katso ohje.md.');
+    startBtn.disabled = false;
+    luokkaEl.disabled = false;
+    nimimerkkiEl.disabled = false;
+    return;
+  }
+
   showMessage("Lähetetään tuloksia...", "sending");
 
   const data = {
@@ -242,18 +376,54 @@ async function stopTracking() {
     matka_km: km,
     aika: new Date().toISOString()
   };
+  log('info', 'Lähetetään: ' + JSON.stringify(data));
 
   try {
-    await fetch(APPS_SCRIPT_URL, {
+    const response = await fetch(APPS_SCRIPT_URL, {
       method: "POST",
-      mode: "no-cors", // Google Apps Script -web-appit vaativat tämän useimmiten
-      headers: { "Content-Type": "text/plain" },
+      headers: { "Content-Type": "text/plain" }, // text/plain välttää CORS-esitarkistuksen (preflight)
       body: JSON.stringify(data)
     });
-    // Huom: no-cors-tilassa emme voi lukea vastausta, joten oletamme onnistumisen
-    showMessage("✅ Tulos lähetetty! Matka: " + km + " km", "success");
+
+    log('info', 'Palvelimelta vastaus, HTTP-tila: ' + response.status);
+    const responseText = await response.text().catch(() => '');
+
+    if (!response.ok) {
+      log('error', 'Palvelin palautti virhetilan ' + response.status + '. Vastauksen sisältö: ' + responseText.slice(0, 300));
+      showMessage("❌ Palvelin palautti virheen (" + response.status + "). Katso virheloki.", "error");
+    } else {
+      let parsed = null;
+      try { parsed = JSON.parse(responseText); } catch (e) { /* ei JSON:ia, ei haittaa */ }
+
+      if (parsed && parsed.status === 'error') {
+        log('error', 'Apps Script raportoi virheen: ' + parsed.message);
+        showMessage("❌ Tallennus epäonnistui: " + parsed.message, "error");
+      } else {
+        log('ok', 'Tulos tallennettu onnistuneesti. Vastaus: ' + responseText.slice(0, 200));
+        showMessage("✅ Tulos lähetetty! Matka: " + km + " km", "success");
+      }
+    }
   } catch (err) {
-    showMessage("❌ Lähetys epäonnistui. Tarkista internetyhteys.", "error");
+    // TypeError "Failed to fetch" voi tarkoittaa: ei internetyhteyttä, väärä/vanhentunut
+    // URL, TAI (yleisin syy Apps Scriptin kanssa) selain estää vastauksen LUKEMISEN
+    // CORS-käytännön takia, vaikka data olisi silti tallentunut palvelimelle.
+    // Siksi yritetään vielä varatoimena lähettää sama data "no-cors"-tilassa,
+    // jolloin emme voi lukea vastausta mutta pyyntö menee todennäköisesti perille.
+    log('warn', 'Ensimmäinen lähetys epäonnistui (' + err.message + '). Tämä on usein CORS-rajoitus, ei todellinen virhe. Yritetään varatoimena "no-cors"-lähetystä...');
+
+    try {
+      await fetch(APPS_SCRIPT_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify(data)
+      });
+      log('ok', 'Varalähetys onnistui lähettämään pyynnön (vastausta ei voida vahvistaa CORS:n takia). Tarkista Google Sheetsistä, että rivi ilmestyi.');
+      showMessage("✅ Lähetetty (varmista Sheetsistä, että tulos tallentui). Matka: " + km + " km", "success");
+    } catch (err2) {
+      log('error', 'Myös varalähetys epäonnistui: ' + err2.message + '. Todennäköisin syy: ei internetyhteyttä tai väärä APPS_SCRIPT_URL.');
+      showMessage("❌ Lähetys epäonnistui kokonaan. Tarkista internetyhteys ja osoite (katso virheloki).", "error");
+    }
   }
 
   startBtn.disabled = false;
@@ -272,8 +442,12 @@ stopBtn.addEventListener('click', stopTracking);
 // Rekisteröi service worker, jotta sovellus toimii "aloitusnäytöltä" sovelluksen tavoin
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
+    navigator.serviceWorker.register('sw.js')
+      .then(() => log('ok', 'Service worker rekisteröity (offline-tuki käytössä).'))
+      .catch((err) => log('warn', 'Service workerin rekisteröinti epäonnistui: ' + err.message + ' (sovellus toimii silti, mutta ei offline-tilassa).'));
   });
+} else {
+  log('warn', 'Selain ei tue service workeria — sovellus ei toimi offline-tilassa, mutta muuten toimii normaalisti.');
 }
 </script>
 </body>
