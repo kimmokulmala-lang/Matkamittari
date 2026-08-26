@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Matkamittari</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2563eb">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: linear-gradient(180deg, #eff6ff 0%, #ffffff 100%);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 24px 16px;
+  }
+  .card {
+    width: 100%;
+    max-width: 420px;
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+    padding: 28px 24px;
+  }
+  h1 {
+    font-size: 1.4rem;
+    text-align: center;
+    color: #1e3a8a;
+    margin-bottom: 4px;
+  }
+  .subtitle {
+    text-align: center;
+    color: #64748b;
+    font-size: 0.9rem;
+    margin-bottom: 24px;
+  }
+  label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #334155;
+    margin-bottom: 6px;
+    margin-top: 14px;
+  }
+  input {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1.5px solid #cbd5e1;
+    font-size: 1rem;
+  }
+  input:disabled { background: #f1f5f9; color: #94a3b8; }
+  .distance-display {
+    text-align: center;
+    margin: 28px 0 20px;
+  }
+  .distance-value {
+    font-size: 3rem;
+    font-weight: 700;
+    color: #2563eb;
+    line-height: 1;
+  }
+  .distance-unit {
+    color: #64748b;
+    font-size: 1rem;
+  }
+  .status {
+    text-align: center;
+    font-size: 0.85rem;
+    color: #94a3b8;
+    margin-bottom: 8px;
+    min-height: 18px;
+  }
+  button {
+    width: 100%;
+    padding: 16px;
+    border: none;
+    border-radius: 12px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 10px;
+    transition: transform 0.1s;
+  }
+  button:active { transform: scale(0.98); }
+  #startBtn { background: #22c55e; color: white; }
+  #stopBtn { background: #ef4444; color: white; }
+  #stopBtn[disabled], #startBtn[disabled] {
+    background: #cbd5e1;
+    color: #94a3b8;
+    cursor: not-allowed;
+  }
+  .message {
+    text-align: center;
+    margin-top: 14px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    min-height: 20px;
+  }
+  .message.success { color: #16a34a; }
+  .message.error { color: #dc2626; }
+  .message.sending { color: #2563eb; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>🏃 Matkamittari</h1>
+  <div class="subtitle">Mittaa kuljettu matka GPS:n avulla</div>
+
+  <label for="luokka">Luokka</label>
+  <input id="luokka" type="text" placeholder="esim. 7A" autocomplete="off">
+
+  <label for="nimimerkki">Nimimerkki</label>
+  <input id="nimimerkki" type="text" placeholder="esim. Nopea Näätä" autocomplete="off">
+
+  <div class="distance-display">
+    <div class="distance-value" id="distanceValue">0.00</div>
+    <div class="distance-unit">kilometriä</div>
+  </div>
+
+  <div class="status" id="statusText"></div>
+
+  <button id="startBtn">▶ Aloita mittaus</button>
+  <button id="stopBtn" disabled>⏹ Lopeta ja lähetä</button>
+
+  <div class="message" id="message"></div>
+</div>
+
+<script>
+// ---------- ASETUKSET ----------
+// Vaihda tähän oma Google Apps Script -julkaisuosoitteesi (katso ohje.md)
+const APPS_SCRIPT_URL = "https://script.google.com/a/macros/edu.teuva.fi/s/AKfycbwfw5oSCwhNgcUidNli6__Lr3mu88BPRBrQGDf9TcnTqZHwdGBm1KB0U5VsKVyEFHln/exec";
+// --------------------------------
+
+let watchId = null;
+let lastPosition = null;
+let totalDistanceMeters = 0;
+let tracking = false;
+
+const distanceValueEl = document.getElementById('distanceValue');
+const statusTextEl = document.getElementById('statusText');
+const messageEl = document.getElementById('message');
+const startBtn = document.getElementById('startBtn');
+const stopBtn = document.getElementById('stopBtn');
+const luokkaEl = document.getElementById('luokka');
+const nimimerkkiEl = document.getElementById('nimimerkki');
+
+// Haversine-kaava: laskee etäisyyden (metreinä) kahden GPS-pisteen välillä
+function haversineDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371000; // maapallon säde metreinä
+  const toRad = deg => deg * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLon / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function updateDistanceDisplay() {
+  const km = totalDistanceMeters / 1000;
+  distanceValueEl.textContent = km.toFixed(2);
+}
+
+function handlePosition(position) {
+  const { latitude, longitude, accuracy } = position.coords;
+
+  // Ohitetaan epätarkat mittaukset (yli 30m virhemarginaali) turhien hyppyjen välttämiseksi
+  if (accuracy && accuracy > 30) {
+    statusTextEl.textContent = "GPS-signaali heikko, odotetaan tarkempaa sijaintia...";
+    return;
+  }
+
+  if (lastPosition) {
+    const d = haversineDistance(
+      lastPosition.latitude, lastPosition.longitude,
+      latitude, longitude
+    );
+    // Ohitetaan hyvin pienet liikkeet (GPS-kohina paikallaan ollessa)
+    if (d > 1) {
+      totalDistanceMeters += d;
+      updateDistanceDisplay();
+    }
+  }
+  lastPosition = { latitude, longitude };
+  statusTextEl.textContent = "Mittaus käynnissä...";
+}
+
+function handleError(error) {
+  statusTextEl.textContent = "Sijaintivirhe: " + error.message;
+}
+
+function startTracking() {
+  if (!luokkaEl.value.trim() || !nimimerkkiEl.value.trim()) {
+    showMessage("Täytä luokka ja nimimerkki ennen aloitusta.", "error");
+    return;
+  }
+  if (!('geolocation' in navigator)) {
+    showMessage("Selain ei tue sijainnin mittausta.", "error");
+    return;
+  }
+
+  totalDistanceMeters = 0;
+  lastPosition = null;
+  updateDistanceDisplay();
+  showMessage("", "");
+
+  watchId = navigator.geolocation.watchPosition(handlePosition, handleError, {
+    enableHighAccuracy: true,
+    maximumAge: 0,
+    timeout: 15000
+  });
+
+  tracking = true;
+  startBtn.disabled = true;
+  stopBtn.disabled = false;
+  luokkaEl.disabled = true;
+  nimimerkkiEl.disabled = true;
+  statusTextEl.textContent = "Haetaan sijaintia...";
+}
+
+async function stopTracking() {
+  if (watchId !== null) {
+    navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+  }
+  tracking = false;
+  stopBtn.disabled = true;
+  statusTextEl.textContent = "";
+
+  const km = (totalDistanceMeters / 1000).toFixed(3);
+  showMessage("Lähetetään tuloksia...", "sending");
+
+  const data = {
+    luokka: luokkaEl.value.trim(),
+    nimimerkki: nimimerkkiEl.value.trim(),
+    matka_km: km,
+    aika: new Date().toISOString()
+  };
+
+  try {
+    await fetch(APPS_SCRIPT_URL, {
+      method: "POST",
+      mode: "no-cors", // Google Apps Script -web-appit vaativat tämän useimmiten
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify(data)
+    });
+    // Huom: no-cors-tilassa emme voi lukea vastausta, joten oletamme onnistumisen
+    showMessage("✅ Tulos lähetetty! Matka: " + km + " km", "success");
+  } catch (err) {
+    showMessage("❌ Lähetys epäonnistui. Tarkista internetyhteys.", "error");
+  }
+
+  startBtn.disabled = false;
+  luokkaEl.disabled = false;
+  nimimerkkiEl.disabled = false;
+}
+
+function showMessage(text, type) {
+  messageEl.textContent = text;
+  messageEl.className = "message" + (type ? " " + type : "");
+}
+
+startBtn.addEventListener('click', startTracking);
+stopBtn.addEventListener('click', stopTracking);
+
+// Rekisteröi service worker, jotta sovellus toimii "aloitusnäytöltä" sovelluksen tavoin
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
