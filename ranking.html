@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Matkamittari - Ranking</title>
+<meta name="theme-color" content="#2563eb">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: linear-gradient(180deg, #eff6ff 0%, #ffffff 100%);
+    min-height: 100vh;
+    padding: 24px 16px 60px;
+  }
+  .wrap { max-width: 600px; margin: 0 auto; }
+  h1 {
+    text-align: center;
+    color: #1e3a8a;
+    font-size: 1.6rem;
+    margin-bottom: 4px;
+  }
+  .subtitle {
+    text-align: center;
+    color: #64748b;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+  }
+  .updated {
+    text-align: center;
+    color: #94a3b8;
+    font-size: 0.78rem;
+    margin-bottom: 24px;
+  }
+  .section {
+    background: white;
+    border-radius: 18px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+    padding: 20px;
+    margin-bottom: 22px;
+  }
+  .section h2 {
+    font-size: 1.1rem;
+    color: #1e293b;
+    margin: 0 0 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  th, td {
+    text-align: left;
+    padding: 10px 8px;
+    font-size: 0.95rem;
+  }
+  th {
+    color: #94a3b8;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    border-bottom: 1.5px solid #e2e8f0;
+  }
+  td { border-bottom: 1px solid #f1f5f9; }
+  tr:last-child td { border-bottom: none; }
+  .rank { font-weight: 700; color: #64748b; width: 36px; }
+  .rank.gold { color: #ca8a04; }
+  .rank.silver { color: #64748b; }
+  .rank.bronze { color: #b45309; }
+  .luokka { font-weight: 700; color: #1e293b; }
+  .km { text-align: right; font-weight: 700; color: #2563eb; }
+  .empty {
+    text-align: center;
+    color: #94a3b8;
+    font-size: 0.9rem;
+    padding: 20px 0;
+  }
+  .info-box {
+    background: #eff6ff;
+    border-radius: 12px;
+    padding: 12px 16px;
+    font-size: 0.8rem;
+    color: #1e40af;
+    margin-bottom: 22px;
+    text-align: center;
+  }
+  .error-box {
+    background: #fef2f2;
+    color: #dc2626;
+    border-radius: 12px;
+    padding: 16px;
+    font-size: 0.9rem;
+    text-align: center;
+    display: none;
+  }
+  .refresh-note {
+    text-align: center;
+    color: #cbd5e1;
+    font-size: 0.75rem;
+    margin-top: 10px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🏆 Matkamittari - Ranking</h1>
+  <div class="subtitle">Parhaat luokat kuljetun matkan perusteella</div>
+  <div class="updated" id="updatedText">Ladataan...</div>
+
+  <div class="info-box" id="schoolHoursInfo"></div>
+  <div class="error-box" id="errorBox"></div>
+
+  <div class="section">
+    <h2>📅 Tämän päivän kärki</h2>
+    <table id="dailyTable">
+      <thead>
+        <tr><th>#</th><th>Luokka</th><th style="text-align:right">Matka</th></tr>
+      </thead>
+      <tbody id="dailyBody"></tbody>
+    </table>
+    <div class="empty" id="dailyEmpty" style="display:none">Ei vielä hyväksyttyjä tuloksia tänään.</div>
+  </div>
+
+  <div class="section">
+    <h2>🗓️ Tämän viikon kärki</h2>
+    <table id="weeklyTable">
+      <thead>
+        <tr><th>#</th><th>Luokka</th><th style="text-align:right">Matka</th></tr>
+      </thead>
+      <tbody id="weeklyBody"></tbody>
+    </table>
+    <div class="empty" id="weeklyEmpty" style="display:none">Ei vielä hyväksyttyjä tuloksia tällä viikolla.</div>
+  </div>
+
+  <div class="refresh-note">Päivittyy automaattisesti 60 sekunnin välein</div>
+</div>
+
+<script>
+// ---------- ASETUKSET ----------
+// Sama osoite kuin index.html:ssä (yksi Apps Script -backend palvelee molempia)
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycb.../exec";
+const REFRESH_INTERVAL_MS = 60000; // 60 sekuntia
+// --------------------------------
+
+const updatedTextEl = document.getElementById('updatedText');
+const schoolHoursInfoEl = document.getElementById('schoolHoursInfo');
+const errorBoxEl = document.getElementById('errorBox');
+const dailyBodyEl = document.getElementById('dailyBody');
+const weeklyBodyEl = document.getElementById('weeklyBody');
+const dailyEmptyEl = document.getElementById('dailyEmpty');
+const weeklyEmptyEl = document.getElementById('weeklyEmpty');
+
+const WEEKDAY_NAMES = ['', 'ma', 'ti', 'ke', 'to', 'pe', 'la', 'su'];
+const MEDALS = ['gold', 'silver', 'bronze'];
+
+function renderTable(bodyEl, emptyEl, list) {
+  bodyEl.innerHTML = '';
+  if (!list || list.length === 0) {
+    emptyEl.style.display = 'block';
+    return;
+  }
+  emptyEl.style.display = 'none';
+  list.forEach((item, i) => {
+    const tr = document.createElement('tr');
+    const medalClass = MEDALS[i] ? ' ' + MEDALS[i] : '';
+    const medalIcon = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1);
+    tr.innerHTML =
+      '<td class="rank' + medalClass + '">' + medalIcon + '</td>' +
+      '<td class="luokka">' + escapeHtml(item.luokka) + '</td>' +
+      '<td class="km">' + item.km.toFixed(2) + ' km</td>';
+    bodyEl.appendChild(tr);
+  });
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+async function loadRanking() {
+  if (APPS_SCRIPT_URL.includes('AKfycb...')) {
+    errorBoxEl.textContent = 'APPS_SCRIPT_URL ei ole vielä asetettu tässä tiedostossa.';
+    errorBoxEl.style.display = 'block';
+    updatedTextEl.textContent = '';
+    return;
+  }
+
+  try {
+    const response = await fetch(APPS_SCRIPT_URL, { method: 'GET' });
+    const text = await response.text();
+
+    if (!response.ok) {
+      throw new Error('Palvelin palautti tilan ' + response.status);
+    }
+
+    const data = JSON.parse(text);
+
+    if (data.status === 'error') {
+      throw new Error(data.message);
+    }
+
+    errorBoxEl.style.display = 'none';
+
+    renderTable(dailyBodyEl, dailyEmptyEl, data.daily);
+    renderTable(weeklyBodyEl, weeklyEmptyEl, data.weekly);
+
+    const updated = new Date(data.updated);
+    updatedTextEl.textContent = 'Päivitetty ' + updated.toLocaleTimeString('fi-FI');
+
+    if (data.schoolHours) {
+      const days = data.schoolHours.weekdays.map(d => WEEKDAY_NAMES[d]).join('-');
+      schoolHoursInfoEl.textContent =
+        'ℹ️ Rankingiin lasketaan vain tulokset, jotka tehty klo ' +
+        data.schoolHours.start + '-' + data.schoolHours.end + ' (' + days + ')';
+    }
+
+  } catch (err) {
+    errorBoxEl.textContent = 'Tietojen haku epäonnistui: ' + err.message;
+    errorBoxEl.style.display = 'block';
+    updatedTextEl.textContent = '';
+    console.error('[Ranking]', err);
+  }
+}
+
+loadRanking();
+setInterval(loadRanking, REFRESH_INTERVAL_MS);
+</script>
+</body>
+</html>
