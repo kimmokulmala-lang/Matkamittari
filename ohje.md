@@ -1,22 +1,25 @@
 # Matkamittari — käyttöönotto-ohje
 
-Sovellus koostuu kolmesta osasta:
+Sovellus koostuu neljästä osasta:
 1. **Mittaussovellus** (index.html, manifest.json, sw.js) — oppilaiden käyttämä GPS-mittari
 2. **Backend** (apps-script.js) — Google Sheets + Apps Script, joka tallentaa tulokset
    ja tarkistaa palvelimen omasta kellosta, onko tulos tehty kouluaikana
 3. **Ranking-sivu** (ranking.html) — näyttää päivä- ja viikkotason parhaat luokat
+4. **Käsinsyöttösivu** (manual.html) — opettajalle, tuloksien lisäämiseen
+   ilman puhelimen GPS:ää, suojattu tunnuskoodilla
 
 ## Vaihe 1: Backend (Google Sheets + Apps Script)
 
 1. Luo uusi Google Sheets -taulukko
-2. Lisää ensimmäiselle riville otsikot soluihin A1:F1:
-   `Aikaleima | Luokka | Nimimerkki | Matka (km) | Kelvollinen | Huomautus`
+2. Lisää ensimmäiselle riville otsikot soluihin A1:G1:
+   `Aikaleima | Luokka | Nimimerkki | Matka (km) | Kelvollinen | Huomautus | Lähde`
 3. Laajennukset → Apps Script → liitä `apps-script.js`:n koko sisältö
 4. Muokkaa tiedoston alussa olevia asetuksia oman koulusi mukaan:
    ```js
    const SCHOOL_START_HOUR = 8;   // kouluaika alkaa klo 8
-   const SCHOOL_END_HOUR = 14;    // kouluaika päättyy klo 14
+   const SCHOOL_END_HOUR = 16;    // kouluaika päättyy klo 16
    const SCHOOL_WEEKDAYS = [1, 2, 3, 4, 5]; // ma-pe (1=ma ... 7=su)
+   const TEACHER_PASSCODE = "vaihda-tama-salasana"; // käsinsyötön salasana
    ```
 5. Ota käyttöön verkkosovelluksena, käyttöoikeus "Kaikki"
 6. Kopioi saamasi URL-osoite (muotoa `https://script.google.com/macros/s/.../exec`)
@@ -30,23 +33,24 @@ ne **eivät** lasketa mukaan ranking-sivun laskelmiin.
 
 ## Vaihe 2: Frontend-osoitteiden liittäminen
 
-Sekä `index.html` että `ranking.html` käyttävät samaa backendia. Avaa
-molemmat tiedostot ja korvaa niissä oleva rivi:
+`index.html`, `ranking.html` ja `manual.html` käyttävät kaikki samaa
+backendia. Avaa kaikki kolme tiedostoa ja korvaa niissä oleva rivi:
 ```js
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycb.../exec";
 ```
-omalla vaiheessa 1 saamallasi osoitteella (sama osoite molempiin).
+omalla vaiheessa 1 saamallasi osoitteella (sama osoite kaikkiin kolmeen).
 
 ## Vaihe 3: Julkaisu (GitHub Pages — ilmainen)
 
 1. Luo tili osoitteessa github.com (jos ei vielä ole)
 2. Luo uusi repositorio, esim. nimellä `matkamittari`
 3. Lataa sinne kaikki tiedostot: `index.html`, `ranking.html`,
-   `manifest.json`, `sw.js`
+   `manual.html`, `manifest.json`, `sw.js`
 4. Repositorion asetuksista: Settings → Pages → Source: valitse `main`-haara
 5. GitHub antaa osoitteen muotoa `https://kayttajanimi.github.io/matkamittari/`
    - Mittaussovellus: `.../matkamittari/index.html`
    - Ranking: `.../matkamittari/ranking.html`
+   - Käsinsyöttö (opettajalle): `.../matkamittari/manual.html`
 
 **Vaihtoehto ilman GitHubia:** voit käyttää myös esim. Netlify Drop
 (netlify.com/drop) — vedä vain kansio selaimeen, ja saat julkaisuosoitteen
@@ -62,6 +66,12 @@ sekunneissa ilman tiliäkin.
 `ranking.html`-osoitteen voi näyttää esim. luokan älytaululla tai
 julkaista linkkinä koulun sisäisessä viestikanavassa — se päivittyy
 automaattisesti minuutin välein.
+
+`manual.html`-osoitetta käytät sinä opettajana, kun jollain oppilaalla ei
+ole ollut mahdollisuutta käyttää puhelimen GPS:ää. Syötä luokka, nimimerkki
+ja matka, anna tarvittaessa tarkka päivä/kellonaika (jos tyhjä, käytetään
+nykyhetkeä), ja vahvista opettajan tunnuskoodilla. Ei kannata jakaa tätä
+osoitetta oppilaille.
 
 ## Tulosten tarkastelu
 
@@ -80,6 +90,11 @@ siitä omia kaavioita.
   arvoja Apps Scriptissä, sinun täytyy tehdä "Hallinnoi käyttöönottoja" →
   kynäkuvake → "Uusi versio" → Ota käyttöön, jotta muutos tulee voimaan.
   Pelkkä koodin tallennus ei riitä.
+- **Käsinsyötön salasana ei ole vahva suoja**: `TEACHER_PASSCODE` estää
+  oppilaita käyttämästä lomaketta huvikseen, mutta koodi on nähtävissä
+  kuka tahansa avaa manual.html:n lähdekoodin selaimen kehittäjätyökaluilla.
+  Älä käytä samaa salasanaa kuin missään tärkeässä palvelussa, ja vaihda se
+  tarvittaessa.
 - **Huijaus muilla tavoin**: tämä ratkaisu estää ajan manipuloinnin, mutta
   ei estä esim. autolla ajamista GPS:n huijaamiseksi tai useaa laitetta
   samalla oppilaalla. Jos tämä on huolena, kannattaa harkita esim.

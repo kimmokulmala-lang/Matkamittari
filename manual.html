@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Matkamittari - Käsinsyöttö</title>
+<meta name="theme-color" content="#7c3aed">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: linear-gradient(180deg, #f5f3ff 0%, #ffffff 100%);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 24px 16px;
+  }
+  .card {
+    width: 100%;
+    max-width: 420px;
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+    padding: 28px 24px;
+  }
+  h1 {
+    font-size: 1.3rem;
+    text-align: center;
+    color: #5b21b6;
+    margin-bottom: 4px;
+  }
+  .subtitle {
+    text-align: center;
+    color: #64748b;
+    font-size: 0.85rem;
+    margin-bottom: 24px;
+  }
+  label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #334155;
+    margin-bottom: 6px;
+    margin-top: 14px;
+  }
+  input {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1.5px solid #cbd5e1;
+    font-size: 1rem;
+  }
+  .row2 {
+    display: flex;
+    gap: 10px;
+  }
+  .row2 > div { flex: 1; }
+  .hint {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    margin-top: 4px;
+  }
+  .divider {
+    border-top: 1px dashed #e2e8f0;
+    margin: 22px 0 4px;
+  }
+  .passcode-label {
+    color: #7c3aed;
+  }
+  button {
+    width: 100%;
+    padding: 16px;
+    border: none;
+    border-radius: 12px;
+    font-size: 1.05rem;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 22px;
+    background: #7c3aed;
+    color: white;
+    transition: transform 0.1s;
+  }
+  button:active { transform: scale(0.98); }
+  button:disabled { background: #cbd5e1; color: #94a3b8; cursor: not-allowed; }
+  .message {
+    text-align: center;
+    margin-top: 14px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    min-height: 20px;
+  }
+  .message.success { color: #16a34a; }
+  .message.error { color: #dc2626; }
+  .message.sending { color: #7c3aed; }
+
+  .debug-toggle {
+    background: none;
+    color: #64748b;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 8px;
+    margin-top: 10px;
+    text-decoration: underline;
+    text-align: center;
+    width: 100%;
+    cursor: pointer;
+    border: none;
+  }
+  .debug-panel {
+    display: none;
+    margin-top: 8px;
+    background: #0f172a;
+    border-radius: 10px;
+    padding: 12px;
+    max-height: 200px;
+    overflow-y: auto;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.72rem;
+    line-height: 1.5;
+  }
+  .debug-panel.open { display: block; }
+  .debug-panel .row { margin-bottom: 3px; white-space: pre-wrap; word-break: break-word; }
+  .debug-panel .lvl-info { color: #94a3b8; }
+  .debug-panel .lvl-ok { color: #4ade80; }
+  .debug-panel .lvl-warn { color: #fbbf24; }
+  .debug-panel .lvl-error { color: #f87171; }
+  .debug-panel .row .time { color: #475569; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>✍️ Käsinsyöttö</h1>
+  <div class="subtitle">Opettajalle — tulos ilman puhelimen GPS:ää</div>
+
+  <label for="luokka">Luokka</label>
+  <input id="luokka" type="text" placeholder="esim. 7A" autocomplete="off">
+
+  <label for="nimimerkki">Nimimerkki</label>
+  <input id="nimimerkki" type="text" placeholder="esim. Nopea Näätä" autocomplete="off">
+
+  <label for="matka">Matka (km)</label>
+  <input id="matka" type="number" step="0.01" min="0" placeholder="esim. 2.5">
+
+  <div class="row2">
+    <div>
+      <label for="pvm">Päivämäärä</label>
+      <input id="pvm" type="date">
+    </div>
+    <div>
+      <label for="klo">Kellonaika</label>
+      <input id="klo" type="time">
+    </div>
+  </div>
+  <div class="hint">Jätä tyhjäksi käyttääksesi nykyhetkeä. Tulos lasketaan rankingiin vain, jos aika osuu kouluajalle.</div>
+
+  <div class="divider"></div>
+  <label for="passcode" class="passcode-label">🔒 Opettajan tunnuskoodi</label>
+  <input id="passcode" type="password" autocomplete="off">
+
+  <button id="submitBtn">Tallenna tulos</button>
+
+  <div class="message" id="message"></div>
+
+  <button type="button" class="debug-toggle" id="debugToggle">🔧 Näytä virheloki</button>
+  <div class="debug-panel" id="debugPanel"></div>
+</div>
+
+<script>
+// ---------- ASETUKSET ----------
+// Sama osoite kuin index.html:ssä ja ranking.html:ssä
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycb.../exec";
+// --------------------------------
+
+const luokkaEl = document.getElementById('luokka');
+const nimimerkkiEl = document.getElementById('nimimerkki');
+const matkaEl = document.getElementById('matka');
+const pvmEl = document.getElementById('pvm');
+const kloEl = document.getElementById('klo');
+const passcodeEl = document.getElementById('passcode');
+const submitBtn = document.getElementById('submitBtn');
+const messageEl = document.getElementById('message');
+const debugPanelEl = document.getElementById('debugPanel');
+const debugToggleEl = document.getElementById('debugToggle');
+
+function log(level, text) {
+  const time = new Date().toLocaleTimeString('fi-FI');
+  const row = document.createElement('div');
+  row.className = 'row lvl-' + level;
+  row.innerHTML = '<span class="time">' + time + '</span> ' + escapeHtml(text);
+  debugPanelEl.appendChild(row);
+  debugPanelEl.scrollTop = debugPanelEl.scrollHeight;
+  const consoleFn = level === 'error' ? console.error : (level === 'warn' ? console.warn : console.log);
+  consoleFn('[Käsinsyöttö]', text);
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+debugToggleEl.addEventListener('click', () => {
+  const open = debugPanelEl.classList.toggle('open');
+  debugToggleEl.textContent = open ? '🔧 Piilota virheloki' : '🔧 Näytä virheloki';
+});
+
+window.addEventListener('error', (e) => {
+  log('error', 'Odottamaton virhe: ' + e.message + ' (rivi ' + e.lineno + ')');
+});
+
+log('info', 'Sivu ladattu.');
+if (APPS_SCRIPT_URL.includes('AKfycb...')) {
+  log('warn', 'APPS_SCRIPT_URL näyttää olevan yhä esimerkkiarvo. Vaihda se omaan Apps Script -osoitteeseesi.');
+} else {
+  log('info', 'APPS_SCRIPT_URL on asetettu.');
+}
+
+function showMessage(text, type) {
+  messageEl.textContent = text;
+  messageEl.className = "message" + (type ? " " + type : "");
+}
+
+function buildTimestamp() {
+  // Jos päivämäärä ja kellonaika annettu, yhdistetään ne ISO-muotoiseksi
+  // ajaksi. Muussa tapauksessa palautetaan null, jolloin palvelin käyttää
+  // omaa nykyhetkeään.
+  if (!pvmEl.value) return null;
+  const timePart = kloEl.value || '00:00';
+  const local = new Date(pvmEl.value + 'T' + timePart + ':00');
+  if (isNaN(local.getTime())) return null;
+  return local.toISOString();
+}
+
+async function submitManual() {
+  log('info', 'Tallenna tulos -painiketta painettu.');
+
+  const luokka = luokkaEl.value.trim();
+  const nimimerkki = nimimerkkiEl.value.trim();
+  const matka = matkaEl.value.trim();
+  const passcode = passcodeEl.value;
+
+  if (!luokka || !nimimerkki || !matka) {
+    showMessage("Täytä luokka, nimimerkki ja matka.", "error");
+    log('warn', 'Lähetys estetty: pakollinen kenttä puuttuu.');
+    return;
+  }
+  if (isNaN(parseFloat(matka)) || parseFloat(matka) < 0) {
+    showMessage("Matka pitää olla positiivinen luku.", "error");
+    log('warn', 'Lähetys estetty: matka ei ole kelvollinen luku (' + matka + ').');
+    return;
+  }
+  if (!passcode) {
+    showMessage("Syötä opettajan tunnuskoodi.", "error");
+    log('warn', 'Lähetys estetty: tunnuskoodi puuttuu.');
+    return;
+  }
+  if (APPS_SCRIPT_URL.includes('AKfycb...')) {
+    showMessage("APPS_SCRIPT_URL ei ole asetettu koodissa.", "error");
+    log('error', 'Lähetys peruttu: APPS_SCRIPT_URL on esimerkkiarvo.');
+    return;
+  }
+
+  submitBtn.disabled = true;
+  showMessage("Tallennetaan...", "sending");
+
+  const data = {
+    type: 'manual',
+    password: passcode,
+    luokka: luokka,
+    nimimerkki: nimimerkki,
+    matka_km: matka,
+    aikaleima: buildTimestamp()
+  };
+  log('info', 'Lähetetään: ' + JSON.stringify(Object.assign({}, data, { password: '***' })));
+
+  try {
+    const response = await fetch(APPS_SCRIPT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify(data)
+    });
+
+    log('info', 'HTTP-tila: ' + response.status);
+    const responseText = await response.text().catch(() => '');
+    let parsed = null;
+    try { parsed = JSON.parse(responseText); } catch (e) { /* ei haittaa */ }
+
+    if (!response.ok || (parsed && parsed.status === 'error')) {
+      const reason = parsed && parsed.message ? parsed.message : ('HTTP ' + response.status);
+      log('error', 'Tallennus epäonnistui: ' + reason);
+      showMessage("❌ " + reason, "error");
+    } else if (parsed && parsed.valid === false) {
+      log('warn', 'Tallennettu, mutta ei kelpaa rankingiin: ' + parsed.reason);
+      showMessage("⚠️ Tallennettu, mutta ei rankingiin: " + parsed.reason, "error");
+    } else {
+      log('ok', 'Tallennus onnistui.');
+      showMessage("✅ Tulos tallennettu (" + luokka + ", " + nimimerkki + ", " + matka + " km)", "success");
+      // Tyhjennetään lomake seuraavaa syöttöä varten (paitsi tunnuskoodi, jota
+      // opettaja tarvitsee todennäköisesti heti uudelleen usealle oppilaalle).
+      luokkaEl.value = '';
+      nimimerkkiEl.value = '';
+      matkaEl.value = '';
+      pvmEl.value = '';
+      kloEl.value = '';
+    }
+  } catch (err) {
+    log('error', 'Verkkopyyntö epäonnistui: ' + err.message + '. Tarkista internetyhteys ja APPS_SCRIPT_URL.');
+    showMessage("❌ Lähetys epäonnistui. Tarkista yhteys (katso virheloki).", "error");
+  }
+
+  submitBtn.disabled = false;
+}
+
+submitBtn.addEventListener('click', submitManual);
+</script>
+</body>
+</html>
