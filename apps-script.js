@@ -94,9 +94,12 @@ function doGet(e) {
     const now = new Date();
     const todayStr = Utilities.formatDate(now, SCHOOL_TIMEZONE, 'yyyy-MM-dd');
     const weekStart = getMondayStartOfWeek(now);
+    const currentMonthStr = Utilities.formatDate(now, SCHOOL_TIMEZONE, 'yyyy-MM');
 
     const dailyTotals = {};
     const weeklyTotals = {};
+    const monthlyTotals = {};
+    const allTimeTotals = {};
 
     rows.forEach(function (row) {
       const aikaleima = row[0];
@@ -109,6 +112,7 @@ function doGet(e) {
 
       const km = parseFloat(matka) || 0;
       const rowDateStr = Utilities.formatDate(aikaleima, SCHOOL_TIMEZONE, 'yyyy-MM-dd');
+      const rowMonthStr = Utilities.formatDate(aikaleima, SCHOOL_TIMEZONE, 'yyyy-MM');
 
       if (rowDateStr === todayStr) {
         dailyTotals[luokka] = (dailyTotals[luokka] || 0) + km;
@@ -116,18 +120,25 @@ function doGet(e) {
       if (aikaleima.getTime() >= weekStart.getTime()) {
         weeklyTotals[luokka] = (weeklyTotals[luokka] || 0) + km;
       }
+      if (rowMonthStr === currentMonthStr) {
+        monthlyTotals[luokka] = (monthlyTotals[luokka] || 0) + km;
+      }
+      allTimeTotals[luokka] = (allTimeTotals[luokka] || 0) + km;
     });
 
     const result = {
       status: 'ok',
       updated: now.toISOString(),
+      currentMonth: currentMonthStr,
       schoolHours: {
         start: SCHOOL_START_HOUR,
         end: SCHOOL_END_HOUR,
         weekdays: SCHOOL_WEEKDAYS
       },
       daily: toSortedArray(dailyTotals),
-      weekly: toSortedArray(weeklyTotals)
+      weekly: toSortedArray(weeklyTotals),
+      monthly: toSortedArray(monthlyTotals),
+      allTime: toSortedArray(allTimeTotals)
     };
 
     return ContentService

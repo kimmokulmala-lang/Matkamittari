@@ -5,7 +5,9 @@ Sovellus koostuu neljästä osasta:
 2. **Backend** (apps-script.js) — Google Sheets + Apps Script, joka tallentaa tulokset
    ja tarkistaa palvelimen omasta kellosta, onko tulos tehty kouluaikana
 3. **Ranking-sivu** (ranking.html) — näyttää päivä- ja viikkotason parhaat luokat
-4. **Käsinsyöttösivu** (manual.html) — opettajalle, tuloksien lisäämiseen
+4. **Kuukausiranking** (monthly.html) — näyttää kuukausi- ja kokonaisrankingin
+   omalla sivullaan, jotta ranking.html pysyy selkeänä
+5. **Käsinsyöttösivu** (manual.html) — opettajalle, tuloksien lisäämiseen
    ilman puhelimen GPS:ää, suojattu tunnuskoodilla
 
 ## Vaihe 1: Backend (Google Sheets + Apps Script)
@@ -33,23 +35,24 @@ ne **eivät** lasketa mukaan ranking-sivun laskelmiin.
 
 ## Vaihe 2: Frontend-osoitteiden liittäminen
 
-`index.html`, `ranking.html` ja `manual.html` käyttävät kaikki samaa
-backendia. Avaa kaikki kolme tiedostoa ja korvaa niissä oleva rivi:
+`index.html`, `ranking.html`, `monthly.html` ja `manual.html` käyttävät
+kaikki samaa backendia. Avaa kaikki neljä tiedostoa ja korvaa niissä oleva rivi:
 ```js
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycb.../exec";
 ```
-omalla vaiheessa 1 saamallasi osoitteella (sama osoite kaikkiin kolmeen).
+omalla vaiheessa 1 saamallasi osoitteella (sama osoite kaikkiin neljään).
 
 ## Vaihe 3: Julkaisu (GitHub Pages — ilmainen)
 
 1. Luo tili osoitteessa github.com (jos ei vielä ole)
 2. Luo uusi repositorio, esim. nimellä `matkamittari`
 3. Lataa sinne kaikki tiedostot: `index.html`, `ranking.html`,
-   `manual.html`, `manifest.json`, `sw.js`
+   `monthly.html`, `manual.html`, `manifest.json`, `sw.js`
 4. Repositorion asetuksista: Settings → Pages → Source: valitse `main`-haara
 5. GitHub antaa osoitteen muotoa `https://kayttajanimi.github.io/matkamittari/`
    - Mittaussovellus: `.../matkamittari/index.html`
-   - Ranking: `.../matkamittari/ranking.html`
+   - Ranking (päivä/viikko): `.../matkamittari/ranking.html`
+   - Kuukausiranking: `.../matkamittari/monthly.html`
    - Käsinsyöttö (opettajalle): `.../matkamittari/manual.html`
 
 **Vaihtoehto ilman GitHubia:** voit käyttää myös esim. Netlify Drop
@@ -65,7 +68,9 @@ sekunneissa ilman tiliäkin.
 
 `ranking.html`-osoitteen voi näyttää esim. luokan älytaululla tai
 julkaista linkkinä koulun sisäisessä viestikanavassa — se päivittyy
-automaattisesti minuutin välein.
+automaattisesti minuutin välein. `monthly.html` näyttää saman periaatteen
+mukaan kuukauden ja koko ajan rankingit omalla sivullaan, ja sivujen
+alalaidoissa on ristiinlinkit toisiinsa.
 
 `manual.html`-osoitetta käytät sinä opettajana, kun jollain oppilaalla ei
 ole ollut mahdollisuutta käyttää puhelimen GPS:ää. Syötä luokka, nimimerkki
