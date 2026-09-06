@@ -9,7 +9,7 @@
 
 // Google Apps Script -verkkosovelluksen osoite (sama backend palvelee
 // kaikkia sivuja). Katso ohje.md, miten tämä osoite saadaan.
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxkgdCtbMH8CVU_A17lH2-hYFrL6SHNZxnJBGHYTYZzMeYE-6APi_lSBt1Jzbcs1xMKNQ/exec";
+const APPS_SCRIPT_URL = "hhttps://script.google.com/macros/s/AKfycbwj3YRdFQWeaEFABimPsSecx330humqFRlclaJ8kgI6JnHJ65tLMbDSf09fH-JYNOWGYQ/exec";
 
 // Kuinka usein ranking.html ja monthly.html hakevat tuoreet tulokset
 // automaattisesti (millisekunteina). 60000 = 60 sekuntia.
