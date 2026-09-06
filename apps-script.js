@@ -115,8 +115,18 @@ function doPost(e) {
 // lasketaan mukaan, eli kouluajan ulkopuolella tehdyt mittaukset eivät
 // vaikuta rankingiin (mutta jäävät silti taulukkoon näkyviin
 // läpinäkyvyyden vuoksi).
+//
+// DIAGNOSTIIKKA: jos osoitteen perään lisää ?diagnose=1 (esim.
+// https://.../exec?diagnose=1) ja avaa sen selaimessa, näet suoraan mitä
+// palvelin JUURI NYT laskisi kouluaikatarkistuksesta -- ilman että
+// tarvitsee lähettää oikeaa testitulosta. Tämä on nopein tapa selvittää,
+// miksi tulokset merkitään EI-kelvollisiksi.
 function doGet(e) {
   try {
+    if (e && e.parameter && e.parameter.diagnose === '1') {
+      return runDiagnostics();
+    }
+
     const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
     const values = sheet.getDataRange().getValues();
     const rows = values.slice(1); // ohitetaan otsikkorivi
@@ -181,6 +191,45 @@ function doGet(e) {
       .createTextOutput(JSON.stringify({ status: 'error', message: error.toString() }))
       .setMimeType(ContentService.MimeType.JSON);
   }
+}
+
+// Palauttaa selväkielisen tilannekatsauksen siitä, mitä palvelin JUURI NYT
+// laskisi kouluaikatarkistuksesta. Auttaa selvittämään nopeasti, miksi
+// tulokset merkitään EI-kelvollisiksi (väärät Config.gs-arvot, testaus
+// väärään aikaan, vanha käyttöönotto jne).
+function runDiagnostics() {
+  const now = new Date();
+  const diagnostic = {
+    // Palvelimen (Googlen) oma järjestelmäaika UTC:ssä -- tätä käytetään
+    // AINA tarkistuksen pohjana, ei koskaan asiakkaan lähettämää aikaa.
+    serverTimeUTC: now.toISOString(),
+
+    // Sama aika muunnettuna Config.gs:n SCHOOL_TIMEZONE-aikavyöhykkeeseen.
+    serverTimeInSchoolTimezone: Utilities.formatDate(now, SCHOOL_TIMEZONE, 'yyyy-MM-dd HH:mm:ss (EEEE)'),
+
+    // Nämä kolme rivi Config.gs:stä luetut arvot -- jos nämä eivät ole
+    // mitä luulit, muokkasit todennäköisesti väärää tiedostoa tai et ole
+    // tehnyt "Uusi versio" -käyttöönottoa muutosten jälkeen.
+    configValues: {
+      SCHOOL_TIMEZONE: SCHOOL_TIMEZONE,
+      SCHOOL_START_HOUR: SCHOOL_START_HOUR,
+      SCHOOL_END_HOUR: SCHOOL_END_HOUR,
+      SCHOOL_WEEKDAYS: SCHOOL_WEEKDAYS
+    },
+
+    // Tämä on TÄSMÄLLEEN sama laskenta, jonka doPost tekisi juuri nyt
+    // saapuvalle tulokselle.
+    wouldBeValidRightNow: null,
+    reason: null
+  };
+
+  const check = isWithinSchoolHours(now);
+  diagnostic.wouldBeValidRightNow = check.valid;
+  diagnostic.reason = check.reason || '(kelvollinen, ei syytä hylkäykselle)';
+
+  return ContentService
+    .createTextOutput(JSON.stringify({ status: 'ok', diagnostic: diagnostic }, null, 2))
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
 // Tarkistaa onko annettu ajankohta sallitun kouluajan sisällä.

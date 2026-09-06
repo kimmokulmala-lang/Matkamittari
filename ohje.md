@@ -101,6 +101,40 @@ config.js:stä.
 (netlify.com/drop) — vedä koko kansio selaimeen, ja saat julkaisuosoitteen
 sekunneissa ilman tiliäkin.
 
+## Vianetsintä: "Kelvollinen"-sarake ei koskaan näytä KYLLÄ
+
+Jos tulokset merkitään aina "EI" vaikka mittaus tehtiin kouluaikana,
+selvitä syy suoraan palvelimelta, ilman että tarvitsee lähettää oikeaa
+testitulosta:
+
+1. Avaa selaimessa oma Apps Script -osoitteesi ja lisää perään
+   `?diagnose=1`, esim: `https://script.google.com/macros/s/.../exec?diagnose=1`
+2. Sivu näyttää JSON-muodossa:
+   - `serverTimeInSchoolTimezone` — mitä kellonaikaa palvelin JUURI NYT
+     käyttää laskennassa
+   - `configValues` — mitä SCHOOL_START_HOUR, SCHOOL_END_HOUR jne. arvoja
+     palvelin todella käyttää (nämä tulevat Config.gs-tiedostosta)
+   - `wouldBeValidRightNow` — `true` tai `false`: olisiko juuri nyt
+     lähetetty tulos kelvollinen
+   - `reason` — syy, jos ei kelvollinen
+
+**Yleisimmät syyt, jos `wouldBeValidRightNow` on väärin:**
+
+- **`configValues` näyttää vanhoja/oletusarvoja** vaikka olet muokannut
+  Config.gs:ää → et ole tehnyt "Hallinnoi käyttöönottoja" → kynäkuvake →
+  "Uusi versio" → Ota käyttöön muutosten jälkeen. Pelkkä Tallenna ei riitä.
+- **`serverTimeInSchoolTimezone` näyttää väärän kellonajan** → tarkista
+  että `SCHOOL_TIMEZONE`-arvo Config.gs:ssä on oikein kirjoitettu
+  (`"Europe/Helsinki"`, ei esim. `"Europe/Helsingfors"`).
+- **Testasit oikeasti kouluajan ulkopuolella** (esim. illalla kotona) →
+  tämä on odotettu toiminta, ei virhe. Voit tilapäisesti laajentaa
+  `SCHOOL_START_HOUR`/`SCHOOL_END_HOUR`-arvoja testausta varten ja palauttaa
+  ne oikeiksi jälkikäteen (muista "Uusi versio" molemmilla kerroilla).
+- **`?diagnose=1`-sivu ei aukea ollenkaan / näyttää virheen** → deployment
+  ei ole julkinen ("Kenellä on pääsy" pitää olla Kaikki) tai Config.gs-
+  tiedostoa ei ole luotu ollenkaan (jolloin SCHOOL_TIMEZONE on
+  määrittelemätön ja koko funktio kaatuu virheeseen).
+
 ## Vaihe 4: Käyttö oppilaiden puhelimissa
 
 1. Oppilas avaa `index.html`-osoitteen puhelimen selaimessa (Safari/Chrome)
