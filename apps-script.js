@@ -17,8 +17,9 @@
  * KÄYTTÖÖNOTTO-OHJE:
  * 1. Mene osoitteeseen sheets.google.com ja luo uusi tyhjä taulukko.
  *    Nimeä se esim. "Matkamittari - tulokset".
- * 2. Lisää taulukon ensimmäiselle riville otsikot (soluihin A1:G1):
- *    Aikaleima | Luokka | Nimimerkki | Matka (km) | Kelvollinen | Huomautus | Lähde
+ * 2. Lisää taulukon ensimmäiselle riville otsikot (soluihin A1:K1):
+ *    Aikaleima | Luokka | Nimimerkki | Matka (km) | Kelvollinen | Huomautus |
+ *    Lähde | Kesto (min) | Keskinopeus (km/h) | Huippunopeus (km/h) | Nopeusvaroitus
  * 3. Valikosta: Laajennukset > Apps Script.
  * 4. Poista oletuskoodi olemassa olevasta tiedostosta (yleensä "Code.gs")
  *    ja liitä tilalle TÄMÄ koko tiedosto.
@@ -84,6 +85,7 @@ function doPost(e) {
     }
 
     const check = isWithinSchoolHours(entryTime);
+    const speedCheck = checkPlausibleSpeed(data.kesto_min, data.keskinopeus_kmh);
 
     sheet.appendRow([
       entryTime,
@@ -92,14 +94,20 @@ function doPost(e) {
       data.matka_km || '',
       check.valid ? 'KYLLÄ' : 'EI',
       check.reason,
-      source
+      source,
+      data.kesto_min || '',
+      data.keskinopeus_kmh || '',
+      data.huippunopeus_kmh || '',
+      speedCheck.flag ? 'KYLLÄ' : 'EI'
     ]);
 
     return ContentService
       .createTextOutput(JSON.stringify({
         status: 'ok',
         valid: check.valid,
-        reason: check.reason
+        reason: check.reason,
+        speedWarning: speedCheck.flag,
+        speedReason: speedCheck.reason
       }))
       .setMimeType(ContentService.MimeType.JSON);
 
@@ -176,6 +184,10 @@ function doGet(e) {
         weekdays: SCHOOL_WEEKDAYS,
         timezone: SCHOOL_TIMEZONE
       },
+      speedCheck: {
+        maxPlausibleKmh: MAX_PLAUSIBLE_SPEED_KMH,
+        minDurationMin: MIN_DURATION_FOR_SPEED_CHECK_MIN
+      },
       daily: toSortedArray(dailyTotals),
       weekly: toSortedArray(weeklyTotals),
       monthly: toSortedArray(monthlyTotals),
@@ -230,6 +242,29 @@ function runDiagnostics() {
   return ContentService
     .createTextOutput(JSON.stringify({ status: 'ok', diagnostic: diagnostic }, null, 2))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+// Arvioi, vaikuttaako mittauksen keskinopeus epäilyttävän korkealta
+// (esim. mopolla ajo tai bussissa istuminen kävelyn/juoksun sijaan).
+// Tämä EI hylkää tulosta eikä vaikuta rankingiin -- se on vain lippu,
+// jonka opettaja näkee taulukon "Nopeusvaroitus"-sarakkeesta.
+// Käyttää Config.gs:n vakioita MAX_PLAUSIBLE_SPEED_KMH ja
+// MIN_DURATION_FOR_SPEED_CHECK_MIN.
+function checkPlausibleSpeed(kestoMin, keskinopeusKmh) {
+  const duration = Number(kestoMin) || 0;
+  const speed = Number(keskinopeusKmh) || 0;
+
+  if (duration < MIN_DURATION_FOR_SPEED_CHECK_MIN) {
+    return { flag: false, reason: 'Mittaus liian lyhyt luotettavaan nopeustarkistukseen' };
+  }
+  if (speed > MAX_PLAUSIBLE_SPEED_KMH) {
+    return {
+      flag: true,
+      reason: 'Keskinopeus ' + speed.toFixed(1) + ' km/h ylittää rajan (' +
+        MAX_PLAUSIBLE_SPEED_KMH + ' km/h) -- tarkista mahdollinen ajoneuvon käyttö'
+    };
+  }
+  return { flag: false, reason: '' };
 }
 
 // Tarkistaa onko annettu ajankohta sallitun kouluajan sisällä.

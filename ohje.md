@@ -24,8 +24,8 @@ etkä voi vahingossa unohtaa päivittää jotain yksittäistä sivua erikseen.
 ## Vaihe 1: Backend (Google Sheets + Apps Script)
 
 1. Luo uusi Google Sheets -taulukko
-2. Lisää ensimmäiselle riville otsikot soluihin A1:G1:
-   `Aikaleima | Luokka | Nimimerkki | Matka (km) | Kelvollinen | Huomautus | Lähde`
+2. Lisää ensimmäiselle riville otsikot soluihin A1:K1:
+   `Aikaleima | Luokka | Nimimerkki | Matka (km) | Kelvollinen | Huomautus | Lähde | Kesto (min) | Keskinopeus (km/h) | Huippunopeus (km/h) | Nopeusvaroitus`
 3. Laajennukset → Apps Script
 4. Oletuksena projektissa on yksi tiedosto ("Code.gs"). Poista sen sisältö
    ja liitä tilalle koko `apps-script.js`:n sisältö.
@@ -39,6 +39,8 @@ etkä voi vahingossa unohtaa päivittää jotain yksittäistä sivua erikseen.
    const SCHOOL_END_HOUR = 16;    // kouluaika päättyy klo 16
    const SCHOOL_WEEKDAYS = [1, 2, 3, 4, 5]; // ma-pe (1=ma ... 7=su)
    const TEACHER_PASSCODE = "vaihda-tama-salasana"; // käsinsyötön salasana
+   const MAX_PLAUSIBLE_SPEED_KMH = 25; // nopeusvaroituksen raja
+   const MIN_DURATION_FOR_SPEED_CHECK_MIN = 2; // ei varoiteta lyhyistä mittauksista
    ```
 7. Paina Tallenna (levykuvake) — tallentaa molemmat tiedostot.
 8. Paina "Ota käyttöön" (Deploy) → "Uusi käyttöönotto" (New deployment).
@@ -53,6 +55,16 @@ etkä voi vahingossa unohtaa päivittää jotain yksittäistä sivua erikseen.
 sillä hetkellä kun pyyntö saapuu — ei koskaan oppilaan puhelimen kelloa.
 Kouluajan ulkopuolella tehdyt tulokset tallentuvat silti taulukkoon (näet
 ne sarakkeesta "Kelvollinen" = EI), mutta ne eivät lasketa rankingiin.
+
+**Nopeusvaroitus (uusi ominaisuus):** index.html laskee jokaiselle
+mittaukselle keston, keskinopeuden ja huippunopeuden. Jos keskinopeus
+ylittää `MAX_PLAUSIBLE_SPEED_KMH`-rajan (oletus 25 km/h) ja mittaus kesti
+vähintään `MIN_DURATION_FOR_SPEED_CHECK_MIN` minuuttia, taulukon
+"Nopeusvaroitus"-sarakkeeseen merkitään KYLLÄ -- esim. mopolla ajo tai
+bussissa istuminen kävelyn sijaan. **Tämä EI vaikuta rankingiin eikä hylkää
+tulosta automaattisesti** -- se on vain lippu, jonka voit tarkistaa
+taulukosta itse. Oppilaalle näytetään sovelluksessa heti varoitus
+("🚴 Nopeusvaroitus: ..."), jos hänen tuloksensa ylittää rajan.
 
 **Miksi index.html näyttää joskus vain arvion, ei varmaa tietoa:**
 Selaimet eivät aina pysty lukemaan Apps Scriptin POST-vastausta CORS-

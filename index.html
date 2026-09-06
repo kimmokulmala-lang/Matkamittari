@@ -99,10 +99,12 @@
     font-size: 0.9rem;
     font-weight: 600;
     min-height: 20px;
+    white-space: pre-line;
   }
   .message.success { color: #16a34a; }
   .message.error { color: #dc2626; }
   .message.sending { color: #2563eb; }
+  .message.warn { color: #b45309; }
 
   .debug-toggle {
     background: none;
@@ -169,8 +171,12 @@
 <script>
 let watchId = null;
 let lastPosition = null;
+let lastTimestamp = null;
 let totalDistanceMeters = 0;
 let tracking = false;
+let startTime = null;
+let maxSpeedMps = 0;
+let speedWarningLine = '';
 
 const distanceValueEl = document.getElementById('distanceValue');
 const statusTextEl = document.getElementById('statusText');
@@ -248,6 +254,7 @@ if (typeof APPS_SCRIPT_URL === 'undefined') {
 // arvio -- todellinen, huijaamaton tarkistus tehdään aina palvelimella
 // palvelimen omasta kellosta (katso apps-script.js).
 let cachedSchoolHours = null;
+let cachedSpeedCheck = null;
 
 async function fetchSchoolHours() {
   try {
@@ -258,8 +265,12 @@ async function fetchSchoolHours() {
       cachedSchoolHours = data.schoolHours;
       log('ok', 'Kouluaika-asetukset haettu: klo ' + data.schoolHours.start + '-' + data.schoolHours.end + ' (' + data.schoolHours.timezone + ')');
     }
+    if (data.speedCheck) {
+      cachedSpeedCheck = data.speedCheck;
+      log('ok', 'Nopeustarkistuksen asetukset haettu: raja ' + data.speedCheck.maxPlausibleKmh + ' km/h (min. kesto ' + data.speedCheck.minDurationMin + ' min).');
+    }
   } catch (err) {
-    log('warn', 'Kouluaika-asetusten haku epäonnistui (' + err.message + '). Ennakkovaroitusta kouluajasta ei voida näyttää etukäteen, mutta lopullinen tarkistus tehdään silti aina palvelimella.');
+    log('warn', 'Asetusten haku epäonnistui (' + err.message + '). Ennakkovaroituksia ei voida näyttää etukäteen, mutta lopullinen tarkistus tehdään silti aina palvelimella.');
   }
 }
 fetchSchoolHours();
@@ -306,6 +317,26 @@ function estimateSchoolHoursClientSide() {
   }
 }
 
+// Arvioi laitteella lasketun keskinopeuden perusteella, vaikuttaako
+// mittaus epäilyttävän nopealta (esim. mopo, bussi). Tämä EI hylkää
+// tulosta, vain näyttää varoituksen oppilaalle heti. Palauttaa null,
+// jos nopeusasetuksia ei ole vielä saatu haettua.
+function estimateSpeedWarningClientSide(kestoMin, keskinopeusKmh) {
+  if (!cachedSpeedCheck) return null;
+  if (kestoMin < cachedSpeedCheck.minDurationMin) {
+    // Liian lyhyt mittaus luotettavaan nopeusarviointiin -- ei varoiteta.
+    return { flag: false, reason: '' };
+  }
+  if (keskinopeusKmh > cachedSpeedCheck.maxPlausibleKmh) {
+    return {
+      flag: true,
+      reason: 'Keskinopeus ' + keskinopeusKmh.toFixed(1) + ' km/h ylittää rajan (' +
+        cachedSpeedCheck.maxPlausibleKmh + ' km/h)'
+    };
+  }
+  return { flag: false, reason: '' };
+}
+
 // Haversine-kaava: laskee etäisyyden (metreinä) kahden GPS-pisteen välillä
 function haversineDistance(lat1, lon1, lat2, lon2) {
   const R = 6371000; // maapallon säde metreinä
@@ -327,6 +358,7 @@ function updateDistanceDisplay() {
 
 function handlePosition(position) {
   const { latitude, longitude, accuracy } = position.coords;
+  const nowTimestamp = position.timestamp || Date.now();
   log('info', 'Sijainti saatu: ' + latitude.toFixed(5) + ', ' + longitude.toFixed(5) + ' (tarkkuus ' + Math.round(accuracy) + ' m)');
 
   // Ohitetaan epätarkat mittaukset (yli 30m virhemarginaali) turhien hyppyjen välttämiseksi
@@ -346,11 +378,32 @@ function handlePosition(position) {
       totalDistanceMeters += d;
       updateDistanceDisplay();
       log('ok', 'Lisätty ' + d.toFixed(1) + ' m matkaan. Yhteensä nyt ' + (totalDistanceMeters / 1000).toFixed(3) + ' km.');
+
+      // Huippunopeuden seuranta: käytetään laitteen omaa nopeusarviota
+      // (position.coords.speed, jos saatavilla) JA itse laskettua
+      // etäisyys/aika-nopeutta, ja otetaan näistä suurempi. Näin saadaan
+      // arvio myös laitteilla, jotka eivät tarjoa coords.speed-kenttää.
+      if (lastTimestamp) {
+        const dtSeconds = (nowTimestamp - lastTimestamp) / 1000;
+        if (dtSeconds > 0) {
+          const computedSpeedMps = d / dtSeconds;
+          const deviceSpeedMps = (typeof position.coords.speed === 'number' && position.coords.speed >= 0)
+            ? position.coords.speed
+            : null;
+          const sampleSpeedMps = deviceSpeedMps !== null
+            ? Math.max(deviceSpeedMps, computedSpeedMps)
+            : computedSpeedMps;
+          if (sampleSpeedMps > maxSpeedMps) {
+            maxSpeedMps = sampleSpeedMps;
+          }
+        }
+      }
     } else {
       log('info', 'Liike ' + d.toFixed(2) + ' m ohitettu (todennäköisesti GPS-kohinaa paikallaan ollessa).');
     }
   }
   lastPosition = { latitude, longitude };
+  lastTimestamp = nowTimestamp;
   statusTextEl.textContent = "Mittaus käynnissä...";
 }
 
@@ -391,6 +444,9 @@ function startTracking() {
 
   totalDistanceMeters = 0;
   lastPosition = null;
+  lastTimestamp = null;
+  maxSpeedMps = 0;
+  startTime = Date.now();
   updateDistanceDisplay();
   showMessage("", "");
 
@@ -400,7 +456,7 @@ function startTracking() {
       maximumAge: 0,
       timeout: 15000
     });
-    log('ok', 'watchPosition käynnistetty (id ' + watchId + ').');
+    log('ok', 'watchPosition käynnistetty (id ' + watchId + '). Kellotus alkoi: ' + new Date(startTime).toLocaleTimeString('fi-FI'));
   } catch (err) {
     log('error', 'watchPosition-kutsu epäonnistui: ' + err.message);
     showMessage("Mittausta ei voitu käynnistää.", "error");
@@ -427,7 +483,29 @@ async function stopTracking() {
   stopBtn.disabled = true;
   statusTextEl.textContent = "";
 
-  const km = (totalDistanceMeters / 1000).toFixed(3);
+  const totalKm = totalDistanceMeters / 1000;
+  const km = totalKm.toFixed(3);
+
+  // ---------- KESTO JA KESKINOPEUS ----------
+  const kestoMin = startTime ? (Date.now() - startTime) / 60000 : 0;
+  const keskinopeusKmh = kestoMin > 0 ? totalKm / (kestoMin / 60) : 0;
+  const huippunopeusKmh = maxSpeedMps * 3.6;
+  log('info', 'Kesto: ' + kestoMin.toFixed(2) + ' min, keskinopeus: ' + keskinopeusKmh.toFixed(2) + ' km/h, huippunopeus: ' + huippunopeusKmh.toFixed(2) + ' km/h.');
+
+  // Nopeusvaroitus näytetään OPPILAALLE HETI, koska kesto ja matka ovat jo
+  // tiedossa laitteella -- ei tarvitse odottaa palvelimen vastausta (joka
+  // voi viivästyä tai jäädä lukematta CORS-rajoitusten takia). Tämä on
+  // pelkkä lippu/vihje, ei vaikuta rankingiin: lopullinen tallennus
+  // taulukkoon tehdään aina, ja opettaja voi tarkistaa "Nopeusvaroitus"-
+  // sarakkeen tarvittaessa.
+  speedWarningLine = '';
+  const speedEstimate = estimateSpeedWarningClientSide(kestoMin, keskinopeusKmh);
+  if (speedEstimate && speedEstimate.flag) {
+    speedWarningLine = '🚴 Nopeusvaroitus: ' + speedEstimate.reason;
+    log('warn', 'Nopeusvaroitus laukesi: ' + speedEstimate.reason);
+  } else {
+    log('info', 'Nopeustarkistus: ei huomautettavaa.');
+  }
 
   if (APPS_SCRIPT_URL.includes('AKfycb...')) {
     showMessage("❌ APPS_SCRIPT_URL ei ole vielä asetettu config.js:ssä.", "error");
@@ -444,7 +522,10 @@ async function stopTracking() {
     luokka: luokkaEl.value.trim(),
     nimimerkki: nimimerkkiEl.value.trim(),
     matka_km: km,
-    aika: new Date().toISOString()
+    aika: new Date().toISOString(),
+    kesto_min: kestoMin.toFixed(2),
+    keskinopeus_kmh: keskinopeusKmh.toFixed(2),
+    huippunopeus_kmh: huippunopeusKmh.toFixed(2)
   };
   log('info', 'Lähetetään: ' + JSON.stringify(data));
 
@@ -473,6 +554,13 @@ async function stopTracking() {
         showMessage("⚠️ Tallennettu (" + km + " km), mutta ei lasketa rankingiin: " + parsed.reason, "error");
       } else if (parsed && parsed.valid === true) {
         log('ok', 'Tulos tallennettu onnistuneesti ja se kelpaa rankingiin.');
+        // Vahvistetaan palvelimen oma nopeuslaskelma lokiin (ennakkoarvio
+        // näytettiin jo käyttäjälle heti stopTracking-funktion alussa).
+        if (parsed.speedWarning === true) {
+          log('warn', 'Palvelin vahvisti nopeusvaroituksen: ' + parsed.speedReason);
+        } else if (parsed.speedWarning === false) {
+          log('ok', 'Palvelin vahvisti: ei nopeusvaroitusta.');
+        }
         showMessage("✅ Tulos lähetetty! Matka: " + km + " km", "success");
       } else {
         // Vastaus ei ollut odotetun muotoista JSON:ia (esim. Google palautti
@@ -532,8 +620,19 @@ async function stopTracking() {
 }
 
 function showMessage(text, type) {
-  messageEl.textContent = text;
-  messageEl.className = "message" + (type ? " " + type : "");
+  // Jos nopeusvaroitus on aktiivinen (asetettu stopTracking-funktion
+  // alussa), se näytetään aina viestin YLÄPUOLELLA -- näin oppilas näkee
+  // sen heti eikä se katoa myöhempien päivitysten (esim. "Lähetetään...")
+  // alle.
+  const combined = speedWarningLine ? (speedWarningLine + (text ? '\n' + text : '')) : text;
+
+  // Jos muuten näytettäisiin onnistumisviesti mutta nopeusvaroitus on
+  // päällä, käytetään "warn"-väriä (keltainen/oranssi) suoran vihreän
+  // sijaan, jotta varoitus näkyy visuaalisesti eikä huku onnistumisen alle.
+  const finalType = (speedWarningLine && type === 'success') ? 'warn' : type;
+
+  messageEl.textContent = combined;
+  messageEl.className = "message" + (finalType ? " " + finalType : "");
 }
 
 startBtn.addEventListener('click', startTracking);
