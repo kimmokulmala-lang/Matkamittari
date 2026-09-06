@@ -135,13 +135,8 @@
   <div class="refresh-note">Päivittyy automaattisesti 60 sekunnin välein · <a href="ranking.html" style="color:#94a3b8">Päivä- ja viikkoranking →</a></div>
 </div>
 
+<script src="config.js"></script>
 <script>
-// ---------- ASETUKSET ----------
-// Sama osoite kuin index.html:ssä (yksi Apps Script -backend palvelee molempia)
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzUqh1Y2AR47m5ImfSkyqExhz23x0N6JAByBAoA8PPqnEpjSd1625R-CByJf__QC0WYvA/exec";
-const REFRESH_INTERVAL_MS = 60000; // 60 sekuntia
-// --------------------------------
-
 const updatedTextEl = document.getElementById('updatedText');
 const schoolHoursInfoEl = document.getElementById('schoolHoursInfo');
 const errorBoxEl = document.getElementById('errorBox');

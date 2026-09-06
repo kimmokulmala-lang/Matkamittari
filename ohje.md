@@ -1,53 +1,85 @@
 # Matkamittari — käyttöönotto-ohje
 
-Sovellus koostuu neljästä osasta:
+Sovellus koostuu näistä osista:
 1. **Mittaussovellus** (index.html, manifest.json, sw.js) — oppilaiden käyttämä GPS-mittari
-2. **Backend** (apps-script.js) — Google Sheets + Apps Script, joka tallentaa tulokset
-   ja tarkistaa palvelimen omasta kellosta, onko tulos tehty kouluaikana
-3. **Ranking-sivu** (ranking.html) — näyttää päivä- ja viikkotason parhaat luokat
-4. **Kuukausiranking** (monthly.html) — näyttää kuukausi- ja kokonaisrankingin
+2. **Ranking-sivu** (ranking.html) — näyttää päivä- ja viikkotason parhaat luokat
+3. **Kuukausiranking** (monthly.html) — näyttää kuukausi- ja kokonaisrankingin
    omalla sivullaan, jotta ranking.html pysyy selkeänä
-5. **Käsinsyöttösivu** (manual.html) — opettajalle, tuloksien lisäämiseen
+4. **Käsinsyöttösivu** (manual.html) — opettajalle, tuloksien lisäämiseen
    ilman puhelimen GPS:ää, suojattu tunnuskoodilla
+5. **config.js** — KESKITETYT selainpuolen asetukset (mm. APPS_SCRIPT_URL),
+   jota kaikki neljä yllä olevaa sivua lataavat
+6. **Backend**: kaksi Apps Script -tiedostoa
+   - **Code.gs** (apps-script.js) — varsinainen ohjelmalogiikka
+   - **Config.gs** (apps-script-config.gs.js) — KESKITETYT backend-asetukset
+     (kouluajat, opettajan salasana)
+
+## Miksi asetukset on eriytetty omiin tiedostoihin?
+
+Kun haluat muuttaa esim. APPS_SCRIPT_URL-osoitetta, kouluaikoja tai
+salasanaa, sinun tarvitsee muokata VAIN yhtä tiedostoa (config.js tai
+Config.gs) — muutos vaikuttaa automaattisesti kaikkiin sivuihin/toimintoihin,
+etkä voi vahingossa unohtaa päivittää jotain yksittäistä sivua erikseen.
 
 ## Vaihe 1: Backend (Google Sheets + Apps Script)
 
 1. Luo uusi Google Sheets -taulukko
 2. Lisää ensimmäiselle riville otsikot soluihin A1:G1:
    `Aikaleima | Luokka | Nimimerkki | Matka (km) | Kelvollinen | Huomautus | Lähde`
-3. Laajennukset → Apps Script → liitä `apps-script.js`:n koko sisältö
-4. Muokkaa tiedoston alussa olevia asetuksia oman koulusi mukaan:
+3. Laajennukset → Apps Script
+4. Oletuksena projektissa on yksi tiedosto ("Code.gs"). Poista sen sisältö
+   ja liitä tilalle koko `apps-script.js`:n sisältö.
+5. Lisää UUSI tiedosto: vasemmasta reunasta **"+"** -painike vasemmalla
+   olevan "Tiedostot"-otsikon vierestä → **"Skripti"** → nimeä se **"Config"**
+   (Apps Script lisää automaattisesti .gs-päätteen → tiedostoksi tulee
+   Config.gs). Liitä sinne koko `apps-script-config.gs.js`:n sisältö.
+6. Muokkaa **Config.gs**-tiedoston arvoja oman koulusi mukaan:
    ```js
    const SCHOOL_START_HOUR = 8;   // kouluaika alkaa klo 8
    const SCHOOL_END_HOUR = 16;    // kouluaika päättyy klo 16
    const SCHOOL_WEEKDAYS = [1, 2, 3, 4, 5]; // ma-pe (1=ma ... 7=su)
    const TEACHER_PASSCODE = "vaihda-tama-salasana"; // käsinsyötön salasana
    ```
-5. Ota käyttöön verkkosovelluksena, käyttöoikeus "Kaikki"
-6. Kopioi saamasi URL-osoite (muotoa `https://script.google.com/macros/s/.../exec`)
+7. Paina Tallenna (levykuvake) — tallentaa molemmat tiedostot.
+8. Paina "Ota käyttöön" (Deploy) → "Uusi käyttöönotto" (New deployment).
+   - Valitse tyypiksi "Verkkosovellus" (Web app)
+   - "Suorita nimellä": Minä (oma tilisi)
+   - "Kenellä on pääsy": Kaikki (Anyone) -- tämä on tärkeää,
+     jotta oppilaiden puhelimet voivat lähettää tietoja
+9. Paina "Ota käyttöön". Google pyytää lupia -- hyväksy ne.
+10. Kopioi saamasi "Verkkosovelluksen URL-osoite" (Web app URL).
 
 **Huijauksen esto:** Apps Script tarkistaa aina *palvelimen omaa kelloa*
 sillä hetkellä kun pyyntö saapuu — ei koskaan oppilaan puhelimen kelloa.
-Puhelimen kellon siirtäminen ei siis vaikuta mitenkään. Kouluajan
-ulkopuolella tehdyt tulokset tallentuvat silti taulukkoon (näet ne
-sarakkeesta "Kelvollinen" = EI, syy näkyy "Huomautus"-sarakkeessa), mutta
-ne **eivät** lasketa mukaan ranking-sivun laskelmiin.
+Kouluajan ulkopuolella tehdyt tulokset tallentuvat silti taulukkoon (näet
+ne sarakkeesta "Kelvollinen" = EI), mutta ne eivät lasketa rankingiin.
 
-## Vaihe 2: Frontend-osoitteiden liittäminen
+## Vaihe 2: Selainpuolen osoitteen liittäminen (VAIN YKSI TIEDOSTO)
 
-`index.html`, `ranking.html`, `monthly.html` ja `manual.html` käyttävät
-kaikki samaa backendia. Avaa kaikki neljä tiedostoa ja korvaa niissä oleva rivi:
+Avaa **config.js** ja korvaa siinä oleva rivi:
 ```js
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycb.../exec";
 ```
-omalla vaiheessa 1 saamallasi osoitteella (sama osoite kaikkiin neljään).
+omalla vaiheessa 1 saamallasi osoitteella. Tätä ei tarvitse enää tehdä
+erikseen index.html:ään, ranking.html:ään, monthly.html:ään tai
+manual.html:ään — ne kaikki lataavat osoitteen automaattisesti
+config.js:stä.
 
 ## Vaihe 3: Julkaisu (GitHub Pages — ilmainen)
 
 1. Luo tili osoitteessa github.com (jos ei vielä ole)
 2. Luo uusi repositorio, esim. nimellä `matkamittari`
-3. Lataa sinne kaikki tiedostot: `index.html`, `ranking.html`,
-   `monthly.html`, `manual.html`, `manifest.json`, `sw.js`
+3. Lataa sinne KAIKKI seuraavat tiedostot samaan kansioon:
+   - `index.html`
+   - `ranking.html`
+   - `monthly.html`
+   - `manual.html`
+   - `config.js`  ⭐ (uusi, tärkeä tiedosto)
+   - `manifest.json`
+   - `sw.js`
+
+   (Tiedostoja `apps-script.js` ja `apps-script-config.gs.js` EI ladata
+   GitHubiin — ne liitetään suoraan Apps Scriptin editoriin vaiheessa 1.)
 4. Repositorion asetuksista: Settings → Pages → Source: valitse `main`-haara
 5. GitHub antaa osoitteen muotoa `https://kayttajanimi.github.io/matkamittari/`
    - Mittaussovellus: `.../matkamittari/index.html`
@@ -56,7 +88,7 @@ omalla vaiheessa 1 saamallasi osoitteella (sama osoite kaikkiin neljään).
    - Käsinsyöttö (opettajalle): `.../matkamittari/manual.html`
 
 **Vaihtoehto ilman GitHubia:** voit käyttää myös esim. Netlify Drop
-(netlify.com/drop) — vedä vain kansio selaimeen, ja saat julkaisuosoitteen
+(netlify.com/drop) — vedä koko kansio selaimeen, ja saat julkaisuosoitteen
 sekunneissa ilman tiliäkin.
 
 ## Vaihe 4: Käyttö oppilaiden puhelimissa
@@ -66,10 +98,9 @@ sekunneissa ilman tiliäkin.
 3. Sovellus näkyy nyt kuvakkeena kuin mikä tahansa muu sovellus
 4. Ensimmäisellä käyttökerralla puhelin kysyy lupaa sijaintitietoihin — hyväksy
 
-`ranking.html`-osoitteen voi näyttää esim. luokan älytaululla tai
-julkaista linkkinä koulun sisäisessä viestikanavassa — se päivittyy
-automaattisesti minuutin välein. `monthly.html` näyttää saman periaatteen
-mukaan kuukauden ja koko ajan rankingit omalla sivullaan, ja sivujen
+`ranking.html`- ja `monthly.html`-osoitteet voi näyttää esim. luokan
+älytaululla tai julkaista linkkinä koulun sisäisessä viestikanavassa —
+molemmat päivittyvät automaattisesti minuutin välein, ja sivujen
 alalaidoissa on ristiinlinkit toisiinsa.
 
 `manual.html`-osoitetta käytät sinä opettajana, kun jollain oppilaalla ei
@@ -81,9 +112,9 @@ osoitetta oppilaille.
 ## Tulosten tarkastelu
 
 Kaikki mittaustulokset ilmestyvät Google Sheets -taulukkoosi riveinä:
-aikaleima, luokka, nimimerkki, matka kilometreinä, kelvollisuus (KYLLÄ/EI)
-ja huomautus. Voit suodattaa ja lajitella taulukkoa normaalisti, tai tehdä
-siitä omia kaavioita.
+aikaleima, luokka, nimimerkki, matka kilometreinä, kelvollisuus (KYLLÄ/EI),
+huomautus ja lähde (Puhelin/Käsin). Voit suodattaa ja lajitella taulukkoa
+normaalisti, tai tehdä siitä omia kaavioita.
 
 ## Huomioita
 
@@ -91,26 +122,19 @@ siitä omia kaavioita.
   vain HTTPS-osoitteissa. GitHub Pages ja Netlify tarjoavat tämän automaattisesti.
 - **Akku**: jatkuva GPS-seuranta kuluttaa akkua tavallista enemmän — hyvä
   mainita oppilaille.
-- **Kouluaika-asetusten muuttaminen**: jos muutat `SCHOOL_START_HOUR` tms.
-  arvoja Apps Scriptissä, sinun täytyy tehdä "Hallinnoi käyttöönottoja" →
-  kynäkuvake → "Uusi versio" → Ota käyttöön, jotta muutos tulee voimaan.
-  Pelkkä koodin tallennus ei riitä.
+- **Asetusten muuttaminen jälkikäteen**:
+  - config.js: muuta tiedostoa ja lataa se uudelleen GitHub Pagesille
+    (tai vastaavalle) — ei vaadi mitään Apps Script -toimenpiteitä.
+  - Config.gs: muuta arvoja Apps Script -editorissa, tallenna, ja tee
+    "Hallinnoi käyttöönottoja" → kynäkuvake → "Uusi versio" → Ota käyttöön.
+    Pelkkä Tallenna ei riitä aktivoimaan muutosta julkaistuun osoitteeseen.
 - **Käsinsyötön salasana ei ole vahva suoja**: `TEACHER_PASSCODE` estää
   oppilaita käyttämästä lomaketta huvikseen, mutta koodi on nähtävissä
   kuka tahansa avaa manual.html:n lähdekoodin selaimen kehittäjätyökaluilla.
-  Älä käytä samaa salasanaa kuin missään tärkeässä palvelussa, ja vaihda se
-  tarvittaessa.
+  Älä käytä samaa salasanaa kuin missään tärkeässä palvelussa.
 - **Huijaus muilla tavoin**: tämä ratkaisu estää ajan manipuloinnin, mutta
   ei estä esim. autolla ajamista GPS:n huijaamiseksi tai useaa laitetta
-  samalla oppilaalla. Jos tämä on huolena, kannattaa harkita esim.
-  nopeusrajan tarkistusta (jos nopeus on toistuvasti yli esim. 20 km/h,
-  merkitse tulos epäilyttäväksi).
-- **Tietosuoja**: sovellus ei tallenna reittiä, vain kokonaismatkan. Jos
-  haluat kerätä myös reittipisteet, se on mahdollista mutta vaatii
-  lisäpohdintaa tietosuojasta (GDPR, alaikäiset).
+  samalla oppilaalla.
+- **Tietosuoja**: sovellus ei tallenna reittiä, vain kokonaismatkan.
 - **Testaus**: testaa ensin itse kävelemällä/pyöräilemällä pieni matka,
-  ennen kuin annat oppilaille käyttöön. Kokeile myös lähettää tulos
-  tarkoituksella kouluajan ulkopuolella (esim. muuttamalla hetkeksi
-  SCHOOL_START_HOUR-arvoa testiä varten) varmistaaksesi, että
-  "Kelvollinen"-sarake toimii odotetusti.
-
+  ennen kuin annat oppilaille käyttöön.

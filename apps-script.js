@@ -1,69 +1,98 @@
 /**
- * MATKAMITTARI - Google Apps Script backend
+ * MATKAMITTARI - Google Apps Script backend (Code.gs)
  *
- * Tämä tiedosto hoitaa kaksi asiaa:
- * 1. doPost  -- ottaa vastaan mittaustuloksen ja tarkistaa PALVELIMEN OMASTA
- *               kellosta (ei oppilaan puhelimesta!), onko tulos tehty
- *               kouluaikana. Näin oppilas ei voi huijata muuttamalla
- *               puhelimensa kellonaikaa.
- * 2. doGet   -- laskee päivä- ja viikkorankingit luokittain ja palauttaa
- *               ne JSON-muodossa rankingsivulle (ranking.html).
+ * Tämä tiedosto hoitaa kolme asiaa:
+ * 1. doPost (puhelin) -- ottaa vastaan GPS-mittaustuloksen ja tarkistaa
+ *               PALVELIMEN OMASTA kellosta (ei oppilaan puhelimesta!),
+ *               onko tulos tehty kouluaikana.
+ * 2. doPost (käsin)   -- ottaa vastaan opettajan käsin syöttämän tuloksen
+ *               manual.html-sivulta, suojattuna tunnuskoodilla.
+ * 3. doGet   -- laskee päivä-, viikko-, kuukausi- ja kokonaisrankingit
+ *               luokittain ja palauttaa ne JSON-muodossa ranking.html:lle
+ *               ja monthly.html:lle.
+ *
+ * Kaikki muokattavat asetukset (kouluajat, salasana) ovat ERILLISESSÄ
+ * Config.gs-tiedostossa -- älä lisää vakioita tänne, lisää ne sinne.
  *
  * KÄYTTÖÖNOTTO-OHJE:
  * 1. Mene osoitteeseen sheets.google.com ja luo uusi tyhjä taulukko.
  *    Nimeä se esim. "Matkamittari - tulokset".
- * 2. Lisää taulukon ensimmäiselle riville otsikot (soluihin A1:F1):
- *    Aikaleima | Luokka | Nimimerkki | Matka (km) | Kelvollinen | Huomautus
+ * 2. Lisää taulukon ensimmäiselle riville otsikot (soluihin A1:G1):
+ *    Aikaleima | Luokka | Nimimerkki | Matka (km) | Kelvollinen | Huomautus | Lähde
  * 3. Valikosta: Laajennukset > Apps Script.
- * 4. Poista oletuskoodi ja liitä tilalle TÄMÄ koko tiedosto.
- * 5. Muokkaa alla olevia ASETUKSET-arvoja omiin kouluaikoihisi sopiviksi.
- * 6. Paina Tallenna (levykuvake).
- * 7. Paina "Ota käyttöön" (Deploy) > "Uusi käyttöönotto" (New deployment).
+ * 4. Poista oletuskoodi olemassa olevasta tiedostosta (yleensä "Code.gs")
+ *    ja liitä tilalle TÄMÄ koko tiedosto.
+ * 5. Lisää UUSI tiedosto projektiin: vasemmasta reunasta "+" -painike ->
+ *    "Skripti" -> nimeä se "Config" (tiedostoksi tulee Config.gs) ->
+ *    liitä sinne apps-script-config.gs.js-tiedoston koko sisältö.
+ * 6. Muokkaa Config.gs:n arvoja omiin kouluaikoihisi ja salasanaan sopiviksi.
+ * 7. Paina Tallenna (levykuvake).
+ * 8. Paina "Ota käyttöön" (Deploy) > "Uusi käyttöönotto" (New deployment).
  *    - Valitse tyypiksi "Verkkosovellus" (Web app)
  *    - "Suorita nimellä": Minä (oma tilisi)
  *    - "Kenellä on pääsy": Kaikki (Anyone) -- tämä on tärkeää,
  *      jotta oppilaiden puhelimet voivat lähettää tietoja
- * 8. Paina "Ota käyttöön". Google pyytää lupia -- hyväksy ne.
- * 9. Kopioi saamasi "Verkkosovelluksen URL-osoite" (Web app URL).
- * 10. Liitä TÄMÄ SAMA osoite sekä index.html:n että ranking.html:n
- *     kohtaan APPS_SCRIPT_URL (sama backend palvelee molempia sivuja).
+ * 9. Paina "Ota käyttöön". Google pyytää lupia -- hyväksy ne.
+ * 10. Kopioi saamasi "Verkkosovelluksen URL-osoite" (Web app URL).
+ * 11. Liitä TÄMÄ osoite selainpuolen config.js-tiedostoon (yksi ainoa
+ *     paikka -- kaikki neljä sivua käyttävät sitä automaattisesti).
  *
- * HUOM: Jos muokkaat tätä koodia myöhemmin (esim. vaihdat kouluaikoja),
- * sinun täytyy tehdä "Hallinnoi käyttöönottoja" > kynäkuvake > "Versio: Uusi
- * versio" > Ota käyttöön, jotta muutokset tulevat voimaan julkaistussa
- * osoitteessa. Pelkkä Tallenna ei riitä.
+ * HUOM: Jos muokkaat Config.gs:ää myöhemmin (esim. vaihdat kouluaikoja tai
+ * salasanan), sinun täytyy tehdä "Hallinnoi käyttöönottoja" > kynäkuvake >
+ * "Versio: Uusi versio" > Ota käyttöön, jotta muutokset tulevat voimaan
+ * julkaistussa osoitteessa. Pelkkä Tallenna ei riitä.
  */
-
-// ---------- ASETUKSET ----------
-// Aikavyöhyke, jonka mukaan kouluajat tulkitaan.
-const SCHOOL_TIMEZONE = "Europe/Helsinki";
-
-// Kouluaika alkaa ja päättyy (24h-muodossa). Esim. 8-16 = klo 8:00-15:59.
-const SCHOOL_START_HOUR = 8;
-const SCHOOL_END_HOUR = 16;
-
-// Sallitut viikonpäivät: 1=maanantai, 2=tiistai, ... 7=sunnuntai.
-const SCHOOL_WEEKDAYS = [1, 2, 3, 4, 5]; // ma-pe
-// --------------------------------
 
 function doPost(e) {
   try {
     const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
     const data = JSON.parse(e.postData.contents);
+    const isManual = data.type === 'manual';
 
-    // Palvelimen oma aika sillä hetkellä, kun pyyntö saapuu Googlen
-    // palvelimelle. Tätä EI voi huijata muuttamalla puhelimen kelloa,
-    // koska emme luota mihinkään asiakkaan lähettämään aikatietoon.
-    const serverNow = new Date();
-    const check = isWithinSchoolHours(serverNow);
+    let entryTime;
+    let source;
+
+    if (isManual) {
+      // Käsinsyöttö vaatii oikean opettajan tunnuskoodin (Config.gs:stä).
+      // Ilman sitä rivi hylätään kokonaan -- näin lomaketta ei voi käyttää
+      // GPS-tarkistuksen ohittamiseen ilman salasanaa.
+      if (data.password !== TEACHER_PASSCODE) {
+        return ContentService
+          .createTextOutput(JSON.stringify({
+            status: 'error',
+            message: 'Väärä opettajan tunnuskoodi.'
+          }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+
+      source = 'Käsin (opettaja)';
+
+      // Opettaja voi antaa tarkan ajankohdan (jos tulos mitattiin esim.
+      // aiemmin päivällä sekuntikellolla). Jos ajankohtaa ei anneta tai se
+      // on virheellinen, käytetään palvelimen nykyhetkeä.
+      entryTime = data.aikaleima ? new Date(data.aikaleima) : new Date();
+      if (isNaN(entryTime.getTime())) {
+        entryTime = new Date();
+      }
+    } else {
+      source = 'Puhelin (GPS)';
+
+      // Palvelimen oma aika sillä hetkellä, kun pyyntö saapuu Googlen
+      // palvelimelle. Tätä EI voi huijata muuttamalla puhelimen kelloa,
+      // koska emme luota mihinkään asiakkaan lähettämään aikatietoon.
+      entryTime = new Date();
+    }
+
+    const check = isWithinSchoolHours(entryTime);
 
     sheet.appendRow([
-      serverNow,
+      entryTime,
       data.luokka || '',
       data.nimimerkki || '',
       data.matka_km || '',
       check.valid ? 'KYLLÄ' : 'EI',
-      check.reason
+      check.reason,
+      source
     ]);
 
     return ContentService
@@ -81,10 +110,11 @@ function doPost(e) {
   }
 }
 
-// GET-pyyntö palauttaa tämän päivän ja tämän viikon rankingit luokittain.
-// Vain "Kelvollinen = KYLLÄ" -rivit lasketaan mukaan, eli kouluajan
-// ulkopuolella tehdyt mittaukset eivät vaikuta rankingiin (mutta jäävät
-// silti taulukkoon näkyviin läpinäkyvyyden vuoksi).
+// GET-pyyntö palauttaa tämän päivän, tämän viikon, tämän kuukauden ja
+// kaikkien aikojen rankingit luokittain. Vain "Kelvollinen = KYLLÄ" -rivit
+// lasketaan mukaan, eli kouluajan ulkopuolella tehdyt mittaukset eivät
+// vaikuta rankingiin (mutta jäävät silti taulukkoon näkyviin
+// läpinäkyvyyden vuoksi).
 function doGet(e) {
   try {
     const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
@@ -153,6 +183,7 @@ function doGet(e) {
 }
 
 // Tarkistaa onko annettu ajankohta sallitun kouluajan sisällä.
+// Käyttää Config.gs:n vakioita SCHOOL_TIMEZONE, SCHOOL_START_HOUR jne.
 function isWithinSchoolHours(date) {
   const weekday = Number(Utilities.formatDate(date, SCHOOL_TIMEZONE, 'u')); // 1=ma ... 7=su
   const hour = Number(Utilities.formatDate(date, SCHOOL_TIMEZONE, 'H'));
