@@ -238,6 +238,74 @@ if (typeof APPS_SCRIPT_URL === 'undefined') {
   log('info', 'APPS_SCRIPT_URL on asetettu: ' + APPS_SCRIPT_URL);
 }
 
+// ---------- KOULUAIKOJEN ENNAKKOTARKISTUS ----------
+// Apps Scriptin POST-vastausta ei aina pystytä lukemaan selaimessa CORS-
+// rajoitusten takia (katso stopTracking-funktion varalähetys). Jotta
+// oppilas saa silti AINA näkyvän varoituksen, jos tulos on kouluajan
+// ulkopuolella, haetaan kouluaika-asetukset (GET-pyyntö, joka on
+// luotettavampi lukea) etukäteen ja tehdään sen pohjalta laitteen omaan
+// kelloon perustuva ennakkoarvio. HUOM: tämä on VAIN käyttäjälle näkyvä
+// arvio -- todellinen, huijaamaton tarkistus tehdään aina palvelimella
+// palvelimen omasta kellosta (katso apps-script.js).
+let cachedSchoolHours = null;
+
+async function fetchSchoolHours() {
+  try {
+    const response = await fetch(APPS_SCRIPT_URL, { method: 'GET' });
+    const text = await response.text();
+    const data = JSON.parse(text);
+    if (data.schoolHours) {
+      cachedSchoolHours = data.schoolHours;
+      log('ok', 'Kouluaika-asetukset haettu: klo ' + data.schoolHours.start + '-' + data.schoolHours.end + ' (' + data.schoolHours.timezone + ')');
+    }
+  } catch (err) {
+    log('warn', 'Kouluaika-asetusten haku epäonnistui (' + err.message + '). Ennakkovaroitusta kouluajasta ei voida näyttää etukäteen, mutta lopullinen tarkistus tehdään silti aina palvelimella.');
+  }
+}
+fetchSchoolHours();
+
+// Palauttaa annetun ajankohdan viikonpäivän (1=ma...7=su) ja kellonajan
+// (minuutteina keskiyöstä) HALUTUSSA aikavyöhykkeessä, laitteen omalla
+// kellolla laskettuna.
+function getLocalTimeInZone(date, timeZone) {
+  const fmt = new Intl.DateTimeFormat('en-GB', {
+    timeZone, hour12: false, hour: '2-digit', minute: '2-digit', weekday: 'short'
+  });
+  const parts = fmt.formatToParts(date);
+  const map = {};
+  parts.forEach(p => { map[p.type] = p.value; });
+  const weekdayMap = { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 7 };
+  return {
+    weekday: weekdayMap[map.weekday],
+    totalMinutes: Number(map.hour) * 60 + Number(map.minute)
+  };
+}
+
+// Arvioi laitteen omaan kelloon perustuen, onko juuri nyt kouluaikaa.
+// Palauttaa null, jos kouluaika-asetuksia ei ole vielä saatu haettua.
+function estimateSchoolHoursClientSide() {
+  if (!cachedSchoolHours) return null;
+  try {
+    const { weekday, totalMinutes } = getLocalTimeInZone(new Date(), cachedSchoolHours.timezone);
+    const startMinutes = cachedSchoolHours.start * 60;
+    const endMinutes = cachedSchoolHours.end * 60;
+
+    if (cachedSchoolHours.weekdays.indexOf(weekday) === -1) {
+      return { valid: false, reason: 'Viikonloppu / vapaapäivä' };
+    }
+    if (totalMinutes < startMinutes || totalMinutes >= endMinutes) {
+      return {
+        valid: false,
+        reason: 'Kouluajan (' + cachedSchoolHours.start + '-' + cachedSchoolHours.end + ') ulkopuolella'
+      };
+    }
+    return { valid: true, reason: '' };
+  } catch (err) {
+    log('warn', 'Kouluajan ennakkoarviointi epäonnistui: ' + err.message);
+    return null;
+  }
+}
+
 // Haversine-kaava: laskee etäisyyden (metreinä) kahden GPS-pisteen välillä
 function haversineDistance(lat1, lon1, lat2, lon2) {
   const R = 6371000; // maapallon säde metreinä
@@ -403,9 +471,20 @@ async function stopTracking() {
       } else if (parsed && parsed.valid === false) {
         log('warn', 'Tulos tallennettu, mutta EI kelpaa rankingiin: ' + parsed.reason);
         showMessage("⚠️ Tallennettu (" + km + " km), mutta ei lasketa rankingiin: " + parsed.reason, "error");
-      } else {
-        log('ok', 'Tulos tallennettu onnistuneesti. Vastaus: ' + responseText.slice(0, 200));
+      } else if (parsed && parsed.valid === true) {
+        log('ok', 'Tulos tallennettu onnistuneesti ja se kelpaa rankingiin.');
         showMessage("✅ Tulos lähetetty! Matka: " + km + " km", "success");
+      } else {
+        // Vastaus ei ollut odotetun muotoista JSON:ia (esim. Google palautti
+        // HTML-sivun). Käytetään laitteen kellon ennakkoarviota varoituksen
+        // näyttämiseen sen sijaan, että oletettaisiin suoraan onnistuneeksi.
+        log('warn', 'Palvelimen vastausta ei voitu jäsentää JSON:ksi. Vastaus: ' + responseText.slice(0, 200));
+        const estimate = estimateSchoolHoursClientSide();
+        if (estimate && estimate.valid === false) {
+          showMessage("⚠️ Lähetetty (" + km + " km), mutta todennäköisesti EI rankingiin: " + estimate.reason + ". Tarkista Sheetsistä.", "error");
+        } else {
+          showMessage("✅ Tulos lähetetty! Matka: " + km + " km", "success");
+        }
       }
     }
   } catch (err) {
@@ -423,8 +502,24 @@ async function stopTracking() {
         headers: { "Content-Type": "text/plain" },
         body: JSON.stringify(data)
       });
-      log('ok', 'Varalähetys onnistui lähettämään pyynnön (vastausta ei voida vahvistaa CORS:n takia). Tarkista Google Sheetsistä, että rivi ilmestyi.');
-      showMessage("✅ Lähetetty (varmista Sheetsistä, että tulos tallentui). Matka: " + km + " km", "success");
+
+      // Emme voi lukea palvelimen oikeaa vastausta (no-cors), joten näytetään
+      // laitteen omaan kelloon perustuva ARVIO siitä, osuiko lähetys
+      // kouluajalle. Tämä ei ole huijaamaton (asiakas voisi teoriassa
+      // väärentää kellonsa), mutta antaa oppilaalle silti heti näkyvän
+      // vihjeen -- todellinen, palvelimen kellolla tehty tarkistus näkyy
+      // aina Google Sheetsin "Kelvollinen"-sarakkeessa.
+      const estimate = estimateSchoolHoursClientSide();
+      if (estimate && estimate.valid === false) {
+        log('warn', 'Varalähetys onnistui, mutta laitteen kellon mukaan arvioituna tulos on TODENNÄKÖISESTI kouluajan ulkopuolella: ' + estimate.reason + '. Palvelin tekee lopullisen ratkaisun omalla kellollaan.');
+        showMessage("⚠️ Lähetetty (" + km + " km), mutta todennäköisesti EI rankingiin: " + estimate.reason + ". Tarkista Sheetsistä.", "error");
+      } else if (estimate && estimate.valid === true) {
+        log('ok', 'Varalähetys onnistui. Laitteen kellon mukaan arvioituna tulos osuu kouluajalle. Tarkista silti Sheetsistä, että rivi tallentui (CORS esti vastauksen lukemisen).');
+        showMessage("✅ Lähetetty (varmista Sheetsistä, että tulos tallentui). Matka: " + km + " km", "success");
+      } else {
+        log('ok', 'Varalähetys onnistui lähettämään pyynnön (vastausta ei voida vahvistaa CORS:n takia, eikä kouluaika-arviota ollut saatavilla). Tarkista Google Sheetsistä, että rivi ilmestyi ja onko se kelvollinen.');
+        showMessage("✅ Lähetetty (varmista Sheetsistä, että tulos tallentui ja onko se kelvollinen). Matka: " + km + " km", "success");
+      }
     } catch (err2) {
       log('error', 'Myös varalähetys epäonnistui: ' + err2.message + '. Todennäköisin syy: ei internetyhteyttä tai väärä APPS_SCRIPT_URL.');
       showMessage("❌ Lähetys epäonnistui kokonaan. Tarkista internetyhteys ja osoite (katso virheloki).", "error");

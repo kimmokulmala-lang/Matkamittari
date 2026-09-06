@@ -54,6 +54,16 @@ sillä hetkellä kun pyyntö saapuu — ei koskaan oppilaan puhelimen kelloa.
 Kouluajan ulkopuolella tehdyt tulokset tallentuvat silti taulukkoon (näet
 ne sarakkeesta "Kelvollinen" = EI), mutta ne eivät lasketa rankingiin.
 
+**Miksi index.html näyttää joskus vain arvion, ei varmaa tietoa:**
+Selaimet eivät aina pysty lukemaan Apps Scriptin POST-vastausta CORS-
+rajoitusten takia (tunnettu Apps Script -oikku). Tämän vuoksi index.html
+hakee sivun latautuessa kouluaika-asetukset erillisellä GET-pyynnöllä
+(joka on luotettavampi lukea) ja laskee niiden pohjalta laitteen omaan
+kelloon perustuvan ENNAKKOARVION. Jos arvio sanoo "todennäköisesti EI
+rankingiin", oppilas näkee siitä heti varoituksen sovelluksessa — mutta
+lopullinen, huijaamaton totuus näkyy aina Google Sheetsin
+"Kelvollinen"-sarakkeesta, koska se perustuu palvelimen omaan kelloon.
+
 ## Vaihe 2: Selainpuolen osoitteen liittäminen (VAIN YKSI TIEDOSTO)
 
 Avaa **config.js** ja korvaa siinä oleva rivi:

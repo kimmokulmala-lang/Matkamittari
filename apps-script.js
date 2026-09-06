@@ -163,7 +163,8 @@ function doGet(e) {
       schoolHours: {
         start: SCHOOL_START_HOUR,
         end: SCHOOL_END_HOUR,
-        weekdays: SCHOOL_WEEKDAYS
+        weekdays: SCHOOL_WEEKDAYS,
+        timezone: SCHOOL_TIMEZONE
       },
       daily: toSortedArray(dailyTotals),
       weekly: toSortedArray(weeklyTotals),
