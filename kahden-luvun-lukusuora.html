@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kokonlukulaskut lukusuoralla</title>
+  <style>
+    :root {
+      --blue: #155eef;
+      --orange: #e04f16;
+      --dark: #182230;
+      --line: #637083;
+      --soft: #f4f7fb;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--dark);
+      background: var(--soft);
+    }
+
+    main {
+      max-width: 1050px;
+      margin: 0 auto;
+      padding: 28px 18px 42px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(1.6rem, 4vw, 2.2rem);
+    }
+
+    .ohje {
+      margin: 0 0 22px;
+      line-height: 1.5;
+    }
+
+    .lasku {
+      background: white;
+      border-radius: 16px;
+      padding: 18px;
+      box-shadow: 0 4px 18px rgba(24, 34, 48, 0.12);
+      text-align: center;
+      margin-bottom: 18px;
+    }
+
+    #laskuTeksti {
+      font-size: clamp(2rem, 7vw, 3.3rem);
+      font-weight: 700;
+      color: var(--blue);
+    }
+
+    #selite {
+      margin: 10px 0 0;
+      font-size: 1rem;
+    }
+
+    .lukusuora-laatikko {
+      background: white;
+      border-radius: 16px;
+      padding: 16px 10px 6px;
+      box-shadow: 0 4px 18px rgba(24, 34, 48, 0.12);
+      overflow-x: auto;
+    }
+
+    svg {
+      display: block;
+      min-width: 760px;
+      width: 100%;
+      height: 330px;
+      touch-action: none;
+      user-select: none;
+    }
+
+    .akseli {
+      stroke: var(--line);
+      stroke-width: 3;
+    }
+
+    .viiva {
+      stroke: #8d99a8;
+      stroke-width: 2;
+    }
+
+    .nolla-viiva {
+      stroke: #344054;
+      stroke-width: 3;
+    }
+
+    .numero {
+      font-size: 15px;
+      text-anchor: middle;
+      fill: #344054;
+      font-weight: 600;
+    }
+
+    .nuoli {
+      fill: none;
+      stroke: var(--orange);
+      stroke-width: 7;
+      stroke-linecap: round;
+    }
+
+    .piste {
+      fill: var(--blue);
+      stroke: white;
+      stroke-width: 4;
+      cursor: grab;
+    }
+
+    .piste:active {
+      cursor: grabbing;
+    }
+
+    .piste-teksti {
+      font-size: 17px;
+      font-weight: 700;
+      text-anchor: middle;
+      fill: var(--blue);
+      pointer-events: none;
+    }
+
+    .kontrollit {
+      margin-top: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+    }
+
+    button {
+      border: 0;
+      border-radius: 10px;
+      padding: 11px 15px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      background: var(--blue);
+      color: white;
+    }
+
+    button:hover { filter: brightness(0.92); }
+
+    button.esimerkki {
+      background: #475467;
+    }
+
+    .vinkki {
+      margin-top: 20px;
+      padding: 15px 18px;
+      border-left: 5px solid var(--orange);
+      border-radius: 8px;
+      background: #fff4ed;
+      line-height: 1.55;
+    }
+
+    .legenda {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 20px;
+      margin: 14px 0 2px;
+      font-size: 0.95rem;
+    }
+
+    .merkki {
+      display: inline-block;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      margin-right: 6px;
+      vertical-align: -2px;
+      background: var(--blue);
+    }
+
+    .merkki.nuoli-merkki {
+      background: var(--orange);
+    }
+  </style>
+</head>
+
+<body>
+<main>
+  <h1>Kokonlukujen laskeminen lukusuoralla</h1>
+  <p class="ohje">
+    Vedä <strong>sinistä alkupistettä</strong> ja <strong>nuolenkärkeä</strong>
+    lukusuoralla. Oikealle kulkeva nuoli on yhteenlasku ja vasemmalle kulkeva nuoli on vähennyslasku.
+  </p>
+
+  <section class="lasku" aria-live="polite">
+    <div id="laskuTeksti">7 + 10 = 17</div>
+    <p id="selite">Aloita luvusta 7 ja siirry 10 askelta oikealle.</p>
+  </section>
+
+  <section class="lukusuora-laatikko">
+    <svg id="svg" viewBox="0 0 900 330" role="img"
+         aria-label="Vuorovaikutteinen lukusuora kokonlukujen laskemiseen">
+      <defs>
+        <marker id="nuolenkarki" viewBox="0 0 10 10" refX="8" refY="5"
+                markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#e04f16"></path>
+        </marker>
+      </defs>
+
+      <g id="asteikko"></g>
+
+      <path id="kaari" class="nuoli" marker-end="url(#nuolenkarki)"></path>
+
+      <circle id="alkupiste" class="piste" r="13"></circle>
+      <text id="alkuteksti" class="piste-teksti"></text>
+
+      <circle id="loppupiste" class="piste" r="13"></circle>
+      <text id="lopputeksti" class="piste-teksti"></text>
+    </svg>
+  </section>
+
+  <div class="legenda">
+    <span><span class="merkki"></span>Vedettävät pisteet</span>
+    <span><span class="merkki nuoli-merkki"></span>Laskun liike</span>
+  </div>
+
+  <div class="kontrollit">
+    <button onclick="asetaLasku(7, 17)">Esimerkki: 7 + 10</button>
+    <button class="esimerkki" onclick="asetaLasku(7, -3)">Esimerkki: 7 − 10</button>
+    <button class="esimerkki" onclick="asetaLasku(-5, 4)">Esimerkki: −5 + 9</button>
+    <button class="esimerkki" onclick="asetaLasku(4, -6)">Esimerkki: 4 − 10</button>
+    <button onclick="asetaLasku(0, 0)">Aloita alusta</button>
+  </div>
+
+  <aside class="vinkki">
+    <strong>Opetusvinkki:</strong> Pyydä oppilasta ensin sanomaan ääneen,
+    mistä luvusta liikkeelle lähdetään ja mihin suuntaan kuljetaan.
+    Esimerkiksi: <em>“Aloitan luvusta 7. Lisään 10, joten liikun oikealle
+    kymmenen askelta. Päädyn lukuun 17.”</em>
+  </aside>
+</main>
+
+<script>
+  // Lukusuoran rajat
+  const min = -20;
+  const max = 20;
+
+  // SVG-alueen mitat ja lukusuoran paikka
+  const vasen = 55;
+  const oikea = 845;
+  const yAkseli = 235;
+
+  let alku = 7;
+  let loppu = 17;
+  let vedettava = null;
+
+  const svg = document.getElementById("svg");
+  const asteikko = document.getElementById("asteikko");
+  const kaari = document.getElementById("kaari");
+  const alkupiste = document.getElementById("alkupiste");
+  const loppupiste = document.getElementById("loppupiste");
+  const alkuteksti = document.getElementById("alkuteksti");
+  const lopputeksti = document.getElementById("lopputeksti");
+  const laskuTeksti = document.getElementById("laskuTeksti");
+  const selite = document.getElementById("selite");
+
+  function xKoordinaatti(luku) {
+    return vasen + ((luku - min) / (max - min)) * (oikea - vasen);
+  }
+
+  function lukuXKoordinaatista(x) {
+    const luku = min + ((x - vasen) / (oikea - vasen)) * (max - min);
+    return Math.max(min, Math.min(max, Math.round(luku)));
+  }
+
+  function piirraAsteikko() {
+    asteikko.innerHTML = "";
+
+    // Lukusuoran pääviiva
+    const akseli = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    akseli.setAttribute("x1", vasen);
+    akseli.setAttribute("x2", oikea);
+    akseli.setAttribute("y1", yAkseli);
+    akseli.setAttribute("y2", yAkseli);
+    akseli.setAttribute("class", "akseli");
+    asteikko.appendChild(akseli);
+
+    for (let i = min; i <= max; i++) {
+      const x = xKoordinaatti(i);
+
+      const viiva = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      viiva.setAttribute("x1", x);
+      viiva.setAttribute("x2", x);
+      viiva.setAttribute("y1", yAkseli - (i % 5 === 0 ? 13 : 8));
+      viiva.setAttribute("y2", yAkseli + (i % 5 === 0 ? 13 : 8));
+      viiva.setAttribute("class", i === 0 ? "nolla-viiva" : "viiva");
+      asteikko.appendChild(viiva);
+
+      // Näytetään kaikki luvut, jotta harjoittelu on selkeää.
+      const teksti = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      teksti.setAttribute("x", x);
+      teksti.setAttribute("y", yAkseli + 36);
+      teksti.setAttribute("class", "numero");
+      teksti.textContent = i;
+      asteikko.appendChild(teksti);
+    }
+  }
+
+  function paivita() {
+    const xAlku = xKoordinaatti(alku);
+    const xLoppu = xKoordinaatti(loppu);
+    const erotus = loppu - alku;
+
+    // Kaarevan nuolen korkeus kasvaa hieman siirtymän pituuden mukana.
+    const korkeus = Math.min(145, 55 + Math.abs(erotus) * 7);
+    const keskiX = (xAlku + xLoppu) / 2;
+
+    // Jos alku ja loppu ovat samat, piirretään pieni silmukka.
+    if (alku === loppu) {
+      kaari.setAttribute(
+        "d",
+        `M ${xAlku} ${yAkseli - 16}
+         C ${xAlku + 45} ${yAkseli - 115},
+           ${xAlku - 45} ${yAkseli - 115},
+           ${xAlku} ${yAkseli - 16}`
+      );
+    } else {
+      kaari.setAttribute(
+        "d",
+        `M ${xAlku} ${yAkseli - 16}
+         Q ${keskiX} ${yAkseli - korkeus}
+           ${xLoppu} ${yAkseli - 16}`
+      );
+    }
+
+    alkupiste.setAttribute("cx", xAlku);
+    alkupiste.setAttribute("cy", yAkseli);
+    loppupiste.setAttribute("cx", xLoppu);
+    loppupiste.setAttribute("cy", yAkseli);
+
+    alkuteksti.setAttribute("x", xAlku);
+    alkuteksti.setAttribute("y", yAkseli - 23);
+    alkuteksti.textContent = alku;
+
+    lopputeksti.setAttribute("x", xLoppu);
+    lopputeksti.setAttribute("y", yAkseli - 23);
+    lopputeksti.textContent = loppu;
+
+    if (erotus > 0) {
+      laskuTeksti.textContent = `${alku} + ${erotus} = ${loppu}`;
+      selite.textContent =
+        `Aloita luvusta ${alku} ja siirry ${erotus} askelta oikealle.`;
+    } else if (erotus < 0) {
+      laskuTeksti.textContent = `${alku} − ${Math.abs(erotus)} = ${loppu}`;
+      selite.textContent =
+        `Aloita luvusta ${alku} ja siirry ${Math.abs(erotus)} askelta vasemmalle.`;
+    } else {
+      laskuTeksti.textContent = `${alku} + 0 = ${loppu}`;
+      selite.textContent = `Et siirry lukusuoralla: vastaus pysyy luvussa ${alku}.`;
+    }
+  }
+
+  function asetaLasku(uusiAlku, uusiLoppu) {
+    alku = uusiAlku;
+    loppu = uusiLoppu;
+    paivita();
+  }
+
+  function haeSVGKoordinaatti(tapahtuma) {
+    const piste = svg.createSVGPoint();
+    piste.x = tapahtuma.clientX;
+    piste.y = tapahtuma.clientY;
+    return piste.matrixTransform(svg.getScreenCTM().inverse());
+  }
+
+  function aloitaVeto(tapahtuma, kohde) {
+    vedettava = kohde;
+    tapahtuma.preventDefault();
+  }
+
+  function vedonAikana(tapahtuma) {
+    if (!vedettava) return;
+
+    const piste = haeSVGKoordinaatti(tapahtuma);
+    const uusiLuku = lukuXKoordinaatista(piste.x);
+
+    if (vedettava === "alku") {
+      alku = uusiLuku;
+    } else if (vedettava === "loppu") {
+      loppu = uusiLuku;
+    }
+
+    paivita();
+  }
+
+  function lopetaVeto() {
+    vedettava = null;
+  }
+
+  alkupiste.addEventListener("pointerdown", (e) => aloitaVeto(e, "alku"));
+  loppupiste.addEventListener("pointerdown", (e) => aloitaVeto(e, "loppu"));
+
+  svg.addEventListener("pointermove", vedonAikana);
+  svg.addEventListener("pointerup", lopetaVeto);
+  svg.addEventListener("pointerleave", lopetaVeto);
+  svg.addEventListener("pointercancel", lopetaVeto);
+
+  piirraAsteikko();
+  paivita();
+</script>
+</body>
+</html>

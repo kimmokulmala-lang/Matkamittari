@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kolmen luvun laskut lukusuoralla</title>
+
+  <style>
+    :root {
+      --sininen: #155eef;
+      --oranssi: #e04f16;
+      --vihrea: #07883f;
+      --tumma: #182230;
+      --harmaa: #667085;
+      --tausta: #f4f7fb;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--tausta);
+      color: var(--tumma);
+    }
+
+    main {
+      max-width: 1100px;
+      margin: auto;
+      padding: 28px 18px 42px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(1.7rem, 4vw, 2.3rem);
+    }
+
+    .ohje {
+      margin: 0 0 20px;
+      line-height: 1.55;
+    }
+
+    .kortti {
+      background: white;
+      border-radius: 16px;
+      padding: 18px;
+      margin-bottom: 18px;
+      box-shadow: 0 4px 18px rgba(24, 34, 48, 0.12);
+    }
+
+    .lasku {
+      text-align: center;
+    }
+
+    #laskuTeksti {
+      font-size: clamp(1.8rem, 6vw, 3.2rem);
+      font-weight: bold;
+      color: var(--sininen);
+    }
+
+    #selite {
+      margin: 10px 0 0;
+      line-height: 1.5;
+    }
+
+    .lukusuora-alue {
+      overflow-x: auto;
+      padding: 8px 4px 0;
+    }
+
+    svg {
+      display: block;
+      min-width: 820px;
+      width: 100%;
+      height: 410px;
+      touch-action: none;
+      user-select: none;
+    }
+
+    .akseli {
+      stroke: var(--harmaa);
+      stroke-width: 3;
+    }
+
+    .aste {
+      stroke: #98a2b3;
+      stroke-width: 2;
+    }
+
+    .nolla {
+      stroke: #344054;
+      stroke-width: 4;
+    }
+
+    .numero {
+      font-size: 14px;
+      text-anchor: middle;
+      fill: #344054;
+      font-weight: 600;
+    }
+
+    .nuoli1 {
+      fill: none;
+      stroke: var(--oranssi);
+      stroke-width: 7;
+      stroke-linecap: round;
+    }
+
+    .nuoli2 {
+      fill: none;
+      stroke: var(--vihrea);
+      stroke-width: 7;
+      stroke-linecap: round;
+    }
+
+    .piste {
+      stroke: white;
+      stroke-width: 4;
+      cursor: grab;
+    }
+
+    .piste:active {
+      cursor: grabbing;
+    }
+
+    .alku {
+      fill: var(--sininen);
+    }
+
+    .vali {
+      fill: var(--oranssi);
+    }
+
+    .loppu {
+      fill: var(--vihrea);
+    }
+
+    .piste-teksti {
+      font-size: 17px;
+      font-weight: bold;
+      text-anchor: middle;
+      pointer-events: none;
+    }
+
+    .teksti-alku { fill: var(--sininen); }
+    .teksti-vali { fill: var(--oranssi); }
+    .teksti-loppu { fill: var(--vihrea); }
+
+    .selitteet {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 16px;
+      margin-top: 8px;
+      font-size: 0.95rem;
+    }
+
+    .vari {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      margin-right: 5px;
+      vertical-align: -2px;
+    }
+
+    .painikkeet {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    button {
+      border: none;
+      border-radius: 10px;
+      padding: 11px 15px;
+      background: var(--sininen);
+      color: white;
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:hover {
+      filter: brightness(0.92);
+    }
+
+    button.esimerkki {
+      background: #475467;
+    }
+
+    .vinkki {
+      border-left: 5px solid var(--oranssi);
+      background: #fff4ed;
+      border-radius: 8px;
+      padding: 15px 18px;
+      line-height: 1.55;
+    }
+
+    .taulukko {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+    }
+
+    .taulukko th,
+    .taulukko td {
+      padding: 9px;
+      border-bottom: 1px solid #d0d5dd;
+      text-align: left;
+    }
+
+    .taulukko th {
+      background: #f9fafb;
+    }
+  </style>
+</head>
+
+<body>
+<main>
+  <h1>Kolmen luvun laskeminen lukusuoralla</h1>
+
+  <p class="ohje">
+    Vedä pisteitä lukusuoralla. <strong>Sininen piste</strong> on aloitusluku,
+    <strong>oranssi piste</strong> välivastaus ja <strong>vihreä piste</strong>
+    on lopputulos. Ensimmäinen nuoli kuvaa ensimmäistä laskutoimitusta ja toinen
+    nuoli seuraavaa laskutoimitusta.
+  </p>
+
+  <section class="kortti lasku" aria-live="polite">
+    <div id="laskuTeksti">7 + 10 − 15 = 2</div>
+    <p id="selite">
+      Aloita luvusta 7, siirry 10 askelta oikealle lukuun 17 ja sitten
+      15 askelta vasemmalle lukuun 2.
+    </p>
+  </section>
+
+  <section class="kortti">
+    <div class="lukusuora-alue">
+      <svg id="svg" viewBox="0 0 950 410"
+           role="img"
+           aria-label="Vuorovaikutteinen lukusuora kolmen luvun laskemiseen">
+
+        <defs>
+          <marker id="nuolenkarkiOranssi"
+                  viewBox="0 0 10 10"
+                  refX="8"
+                  refY="5"
+                  markerWidth="8"
+                  markerHeight="8"
+                  orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#e04f16"></path>
+          </marker>
+
+          <marker id="nuolenkarkiVihrea"
+                  viewBox="0 0 10 10"
+                  refX="8"
+                  refY="5"
+                  markerWidth="8"
+                  markerHeight="8"
+                  orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#07883f"></path>
+          </marker>
+        </defs>
+
+        <g id="asteikko"></g>
+
+        <path id="nuoliEnsimmainen"
+              class="nuoli1"
+              marker-end="url(#nuolenkarkiOranssi)"></path>
+
+        <path id="nuoliToinen"
+              class="nuoli2"
+              marker-end="url(#nuolenkarkiVihrea)"></path>
+
+        <circle id="alkupiste" class="piste alku" r="14"></circle>
+        <text id="alkuteksti" class="piste-teksti teksti-alku"></text>
+
+        <circle id="valipiste" class="piste vali" r="14"></circle>
+        <text id="valiteksti" class="piste-teksti teksti-vali"></text>
+
+        <circle id="lopputulos" class="piste loppu" r="14"></circle>
+        <text id="lopputeksti" class="piste-teksti teksti-loppu"></text>
+      </svg>
+    </div>
+
+    <div class="selitteet">
+      <span><span class="vari" style="background:#155eef"></span>Aloitusluku</span>
+      <span><span class="vari" style="background:#e04f16"></span>Välivastaus</span>
+      <span><span class="vari" style="background:#07883f"></span>Lopputulos</span>
+    </div>
+  </section>
+
+  <section class="kortti">
+    <strong>Laskun vaiheet</strong>
+
+    <table class="taulukko">
+      <thead>
+        <tr>
+          <th>Vaihe</th>
+          <th>Lasku</th>
+          <th>Tulos</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Aloitus</td>
+          <td id="vaiheAloitus">7</td>
+          <td id="tulosAloitus">7</td>
+        </tr>
+        <tr>
+          <td>1. siirtymä</td>
+          <td id="vaiheYksi">+10</td>
+          <td id="tulosYksi">17</td>
+        </tr>
+        <tr>
+          <td>2. siirtymä</td>
+          <td id="vaiheKaksi">−15</td>
+          <td id="tulosKaksi">2</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <div class="painikkeet">
+    <button onclick="asetaLuvut(7, 17, 2)">
+      7 + 10 − 15 = 2
+    </button>
+
+    <button class="esimerkki" onclick="asetaLuvut(-4, 6, -2)">
+      −4 + 10 − 8 = −2
+    </button>
+
+    <button class="esimerkki" onclick="asetaLuvut(12, 2, 9)">
+      12 − 10 + 7 = 9
+    </button>
+
+    <button class="esimerkki" onclick="asetaLuvut(-8, -15, -5)">
+      −8 − 7 + 10 = −5
+    </button>
+
+    <button class="esimerkki" onclick="asetaLuvut(0, 0, 0)">
+      Tyhjennä
+    </button>
+  </div>
+
+  <aside class="kortti vinkki">
+    <strong>Opetusvinkki:</strong> Käsitelkää lasku aina kahdessa vaiheessa.
+    Oppilas voi sanoittaa ensin ensimmäisen siirtymän ja välivastauksen:
+    <em>“Aloitan seitsemästä. Lisään kymmenen, joten päädyn lukuun 17.”</em>
+    Sen jälkeen hän jatkaa:
+    <em>“Vähennän 15, joten liikun vasemmalle ja päädyn lukuun 2.”</em>
+  </aside>
+</main>
+
+<script>
+  // Lukusuoran pienin ja suurin näkyvä kokonaisluku.
+  const min = -20;
+  const max = 20;
+
+  // SVG-alueen mitat ja lukusuoran sijainti.
+  const vasen = 55;
+  const oikea = 895;
+  const yAkseli = 290;
+
+  // Laskun kolme lukua:
+  // alku = aloitusluku
+  // vali = tulos ensimmäisen laskutoimituksen jälkeen
+  // loppu = lopullinen vastaus
+  let alku = 7;
+  let vali = 17;
+  let loppu = 2;
+
+  let vedettava = null;
+
+  const svg = document.getElementById("svg");
+  const asteikko = document.getElementById("asteikko");
+
+  const nuoliEnsimmainen = document.getElementById("nuoliEnsimmainen");
+  const nuoliToinen = document.getElementById("nuoliToinen");
+
+  const alkupiste = document.getElementById("alkupiste");
+  const valipiste = document.getElementById("valipiste");
+  const lopputulos = document.getElementById("lopputulos");
+
+  const alkuteksti = document.getElementById("alkuteksti");
+  const valiteksti = document.getElementById("valiteksti");
+  const lopputeksti = document.getElementById("lopputeksti");
+
+  const laskuTeksti = document.getElementById("laskuTeksti");
+  const selite = document.getElementById("selite");
+
+  // Muuntaa kokonaisluvun SVG:n x-koordinaatiksi.
+  function xKoordinaatti(luku) {
+    return vasen + ((luku - min) / (max - min)) * (oikea - vasen);
+  }
+
+  // Muuntaa SVG:n x-koordinaatin lähimmäksi kokonaisluvuksi.
+  function lukuXKoordinaatista(x) {
+    const luku = min + ((x - vasen) / (oikea - vasen)) * (max - min);
+    return Math.max(min, Math.min(max, Math.round(luku)));
+  }
+
+  // Piirtää lukusuoran asteikon ja numerot.
+  function piirraAsteikko() {
+    asteikko.innerHTML = "";
+
+    const akseli = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    akseli.setAttribute("x1", vasen);
+    akseli.setAttribute("x2", oikea);
+    akseli.setAttribute("y1", yAkseli);
+    akseli.setAttribute("y2", yAkseli);
+    akseli.setAttribute("class", "akseli");
+    asteikko.appendChild(akseli);
+
+    for (let i = min; i <= max; i++) {
+      const x = xKoordinaatti(i);
+
+      const viiva = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      viiva.setAttribute("x1", x);
+      viiva.setAttribute("x2", x);
+      viiva.setAttribute("y1", yAkseli - (i % 5 === 0 ? 13 : 8));
+      viiva.setAttribute("y2", yAkseli + (i % 5 === 0 ? 13 : 8));
+      viiva.setAttribute("class", i === 0 ? "nolla" : "aste");
+      asteikko.appendChild(viiva);
+
+      const numero = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      numero.setAttribute("x", x);
+      numero.setAttribute("y", yAkseli + 36);
+      numero.setAttribute("class", "numero");
+      numero.textContent = i;
+      asteikko.appendChild(numero);
+    }
+  }
+
+  // Muotoilee siirtymän laskumerkinnäksi.
+  function muotoileSiirtyma(arvo) {
+    if (arvo > 0) return `+ ${arvo}`;
+    if (arvo < 0) return `− ${Math.abs(arvo)}`;
+    return "+ 0";
+  }
+
+  // Muotoilee laskun sanalliseksi ohjeeksi.
+  function siirtymaSanoin(arvo) {
+    if (arvo > 0) {
+      return `siirry ${arvo} askelta oikealle`;
+    }
+    if (arvo < 0) {
+      return `siirry ${Math.abs(arvo)} askelta vasemmalle`;
+    }
+    return "älä siirry";
+  }
+
+  // Luo kaarevan nuolen kahden luvun välille.
+  function piirraKaari(nuoli, lahtoluku, kohdeliuku, korkeus) {
+    const x1 = xKoordinaatti(lahtoluku);
+    const x2 = xKoordinaatti(kohdeliuku);
+    const keskiX = (x1 + x2) / 2;
+
+    // Jos luvut ovat samoja, piirretään pieni silmukka.
+    if (lahtoluku === kohdeliuku) {
+      nuoli.setAttribute(
+        "d",
+        `M ${x1} ${yAkseli - 17}
+         C ${x1 + 38} ${yAkseli - korkeus},
+           ${x1 - 38} ${yAkseli - korkeus},
+           ${x1} ${yAkseli - 17}`
+      );
+    } else {
+      nuoli.setAttribute(
+        "d",
+        `M ${x1} ${yAkseli - 17}
+         Q ${keskiX} ${yAkseli - korkeus}
+           ${x2} ${yAkseli - 17}`
+      );
+    }
+  }
+
+  function paivita() {
+    const xAlku = xKoordinaatti(alku);
+    const xVali = xKoordinaatti(vali);
+    const xLoppu = xKoordinaatti(loppu);
+
+    const ekaSiirtyma = vali - alku;
+    const tokaSiirtyma = loppu - vali;
+
+    // Nuolet ovat eri korkeuksilla, jotta ne erottuvat toisistaan.
+    piirraKaari(nuoliEnsimmainen, alku, vali, 115);
+    piirraKaari(nuoliToinen, vali, loppu, 205);
+
+    // Pisteet lukusuoralle.
+    alkupiste.setAttribute("cx", xAlku);
+    alkupiste.setAttribute("cy", yAkseli);
+
+    valipiste.setAttribute("cx", xVali);
+    valipiste.setAttribute("cy", yAkseli);
+
+    lopputulos.setAttribute("cx", xLoppu);
+    lopputulos.setAttribute("cy", yAkseli);
+
+    // Numeroiden paikat pisteiden yläpuolella.
+    alkuteksti.setAttribute("x", xAlku);
+    alkuteksti.setAttribute("y", yAkseli - 24);
+    alkuteksti.textContent = alku;
+
+    valiteksti.setAttribute("x", xVali);
+    valiteksti.setAttribute("y", yAkseli - 24);
+    valiteksti.textContent = vali;
+
+    lopputeksti.setAttribute("x", xLoppu);
+    lopputeksti.setAttribute("y", yAkseli - 24);
+    lopputeksti.textContent = loppu;
+
+    // Näytettävä lasku.
+    laskuTeksti.textContent =
+      `${alku} ${muotoileSiirtyma(ekaSiirtyma)} ${muotoileSiirtyma(tokaSiirtyma)} = ${loppu}`;
+
+    selite.textContent =
+      `Aloita luvusta ${alku}, ${siirtymaSanoin(ekaSiirtyma)} lukuun ${vali} ja sitten ${siirtymaSanoin(tokaSiirtyma)} lukuun ${loppu}.`;
+
+    // Laskun vaiheiden taulukko.
+    document.getElementById("vaiheAloitus").textContent = alku;
+    document.getElementById("tulosAloitus").textContent = alku;
+
+    document.getElementById("vaiheYksi").textContent = muotoileSiirtyma(ekaSiirtyma);
+    document.getElementById("tulosYksi").textContent = vali;
+
+    document.getElementById("vaiheKaksi").textContent = muotoileSiirtyma(tokaSiirtyma);
+    document.getElementById("tulosKaksi").textContent = loppu;
+  }
+
+  // Asettaa kolme lukua valmiiseen esimerkkilaskuun.
+  function asetaLuvut(uusiAlku, uusiVali, uusiLoppu) {
+    alku = uusiAlku;
+    vali = uusiVali;
+    loppu = uusiLoppu;
+    paivita();
+  }
+
+  // Muuntaa hiiren tai kosketuksen sijainnin SVG-koordinaateiksi.
+  function haeSVGKoordinaatti(tapahtuma) {
+    const piste = svg.createSVGPoint();
+    piste.x = tapahtuma.clientX;
+    piste.y = tapahtuma.clientY;
+    return piste.matrixTransform(svg.getScreenCTM().inverse());
+  }
+
+  function aloitaVeto(tapahtuma, kohde) {
+    vedettava = kohde;
+    tapahtuma.preventDefault();
+  }
+
+  function vedonAikana(tapahtuma) {
+    if (!vedettava) return;
+
+    const piste = haeSVGKoordinaatti(tapahtuma);
+    const uusiLuku = lukuXKoordinaatista(piste.x);
+
+    if (vedettava === "alku") {
+      alku = uusiLuku;
+    }
+
+    if (vedettava === "vali") {
+      vali = uusiLuku;
+    }
+
+    if (vedettava === "loppu") {
+      loppu = uusiLuku;
+    }
+
+    paivita();
+  }
+
+  function lopetaVeto() {
+    vedettava = null;
+  }
+
+  // Hiiri- ja kosketustoiminnot.
+  alkupiste.addEventListener("pointerdown", (e) => aloitaVeto(e, "alku"));
+  valipiste.addEventListener("pointerdown", (e) => aloitaVeto(e, "vali"));
+  lopputulos.addEventListener("pointerdown", (e) => aloitaVeto(e, "loppu"));
+
+  svg.addEventListener("pointermove", vedonAikana);
+  svg.addEventListener("pointerup", lopetaVeto);
+  svg.addEventListener("pointerleave", lopetaVeto);
+  svg.addEventListener("pointercancel", lopetaVeto);
+
+  piirraAsteikko();
+  paivita();
+</script>
+</body>
+</html>
