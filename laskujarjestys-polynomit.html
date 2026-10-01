@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Laskujärjestys polynomeissa</title>
+
+  <style>
+    :root {
+      --sininen: #155eef;
+      --oranssi: #e04f16;
+      --vihrea: #07883f;
+      --violetti: #6938ef;
+      --tumma: #182230;
+      --harmaa: #667085;
+      --vaalea: #f4f7fb;
+      --reuna: #d0d5dd;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--vaalea);
+      color: var(--tumma);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    main {
+      max-width: 1050px;
+      margin: 0 auto;
+      padding: 28px 18px 42px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(1.7rem, 4vw, 2.4rem);
+    }
+
+    .ohje {
+      margin: 0 0 22px;
+      line-height: 1.55;
+    }
+
+    .kortti {
+      margin-bottom: 18px;
+      padding: 20px;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 4px 18px rgba(24, 34, 48, 0.12);
+    }
+
+    .vaihe-otsikko {
+      margin: 0 0 12px;
+      color: var(--sininen);
+      font-size: 1.1rem;
+    }
+
+    .lasku {
+      min-height: 62px;
+      text-align: center;
+      font-size: clamp(1.55rem, 5vw, 2.6rem);
+      font-weight: 700;
+      line-height: 1.5;
+    }
+
+    .korostus-kertolasku {
+      display: inline-block;
+      padding: 1px 8px;
+      border-radius: 8px;
+      color: #344054;
+      background: #dbeafe;
+      outline: 3px solid var(--sininen);
+    }
+
+    .korostus-yhdista {
+      display: inline-block;
+      padding: 1px 8px;
+      border-radius: 8px;
+      color: #7a271a;
+      background: #ffead5;
+      outline: 3px solid var(--oranssi);
+    }
+
+    .korostus-viimeinen {
+      display: inline-block;
+      padding: 1px 8px;
+      border-radius: 8px;
+      color: #3b1e7a;
+      background: #ece9fe;
+      outline: 3px solid var(--violetti);
+    }
+
+    .selite {
+      max-width: 760px;
+      margin: 14px auto 0;
+      text-align: center;
+      line-height: 1.55;
+    }
+
+    .vaihepalkki {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      margin-bottom: 18px;
+    }
+
+    .vaihe-piste {
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border: 2px solid var(--reuna);
+      border-radius: 50%;
+      color: var(--harmaa);
+      background: white;
+      font-weight: bold;
+    }
+
+    .vaihe-piste.aktiivinen {
+      border-color: var(--sininen);
+      color: white;
+      background: var(--sininen);
+    }
+
+    .vaihe-piste.valmis {
+      border-color: var(--vihrea);
+      color: white;
+      background: var(--vihrea);
+    }
+
+    .lukusuora-alue {
+      overflow-x: auto;
+    }
+
+    svg {
+      display: block;
+      min-width: 760px;
+      width: 100%;
+      height: 300px;
+      touch-action: none;
+      user-select: none;
+    }
+
+    .akseli {
+      stroke: var(--harmaa);
+      stroke-width: 3;
+    }
+
+    .aste {
+      stroke: #98a2b3;
+      stroke-width: 2;
+    }
+
+    .nolla {
+      stroke: #344054;
+      stroke-width: 4;
+    }
+
+    .numero {
+      fill: #344054;
+      font-size: 15px;
+      font-weight: 600;
+      text-anchor: middle;
+    }
+
+    .nuoli {
+      fill: none;
+      stroke: var(--oranssi);
+      stroke-width: 7;
+      stroke-linecap: round;
+    }
+
+    .nuoli.piilotettu,
+    .piste.piilotettu,
+    .piste-teksti.piilotettu,
+    .hyppy.piilotettu {
+      display: none;
+    }
+
+    .piste {
+      stroke: white;
+      stroke-width: 4;
+    }
+
+    .aloitus {
+      fill: var(--sininen);
+    }
+
+    .valitulos {
+      fill: var(--oranssi);
+    }
+
+    .lopputulos {
+      fill: var(--vihrea);
+    }
+
+    .piste-teksti {
+      font-size: 18px;
+      font-weight: 700;
+      text-anchor: middle;
+      pointer-events: none;
+    }
+
+    .sininen-teksti { fill: var(--sininen); }
+    .oranssi-teksti { fill: var(--oranssi); }
+    .vihrea-teksti { fill: var(--vihrea); }
+
+    .hyppy-tausta {
+      fill: #fff4ed;
+      stroke: var(--oranssi);
+      stroke-width: 2;
+      rx: 10;
+    }
+
+    .hyppy-termi {
+      fill: var(--oranssi);
+      font-size: 18px;
+      font-weight: bold;
+      text-anchor: middle;
+    }
+
+    .hyppy-selite {
+      fill: #7a271a;
+      font-size: 13px;
+      font-weight: 600;
+      text-anchor: middle;
+    }
+
+    .painikkeet {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    button {
+      padding: 11px 16px;
+      border: none;
+      border-radius: 10px;
+      color: white;
+      background: var(--sininen);
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    button:hover {
+      filter: brightness(0.92);
+    }
+
+    button.toissijainen {
+      background: #475467;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+
+    .vastaus {
+      border-left: 5px solid var(--vihrea);
+      background: #ecfdf3;
+      line-height: 1.55;
+    }
+
+    .vastaus h2 {
+      margin-top: 0;
+      color: #067647;
+    }
+
+    .malli {
+      padding: 12px 15px;
+      border-radius: 10px;
+      background: white;
+      font-size: 1.15rem;
+      font-weight: bold;
+    }
+
+    .piilossa {
+      display: none;
+    }
+  </style>
+</head>
+
+<body>
+  <main>
+    <h1>Laskujärjestys: polynomit vaiheittain</h1>
+
+    <p class="ohje">
+      Tehtävässä noudatetaan laskujärjestystä: ensin tehdään
+      <strong>kertolasku</strong>, minkä jälkeen yhdistetään
+      <strong>samanmuotoiset termit</strong> vasemmalta oikealle.
+    </p>
+
+    <section class="kortti">
+      <div class="vaihepalkki" aria-label="Tehtävän vaiheet">
+        <div id="vaihePiste1" class="vaihe-piste aktiivinen">1</div>
+        <div id="vaihePiste2" class="vaihe-piste">2</div>
+        <div id="vaihePiste3" class="vaihe-piste">3</div>
+      </div>
+
+      <h2 id="vaiheOtsikko" class="vaihe-otsikko">
+        Vaihe 1: Kertolasku ennen yhteen- ja vähennyslaskua
+      </h2>
+
+      <div id="laskuNakyma" class="lasku">
+        <span class="korostus-kertolasku">2 · 3x</span> − 5x + 2x
+      </div>
+
+      <p id="selite" class="selite">
+        Laske ensin korostettu kertolasku:
+        $2 \cdot 3x = 6x$.
+      </p>
+    </section>
+
+    <section class="kortti">
+      <div class="lukusuora-alue">
+        <svg
+          id="svg"
+          viewBox="0 0 920 300"
+          role="img"
+          aria-label="Lukusuora laskun vaiheiden havainnollistamiseen"
+        >
+          <defs>
+            <marker
+              id="nuolenkarki"
+              viewBox="0 0 10 10"
+              refX="8"
+              refY="5"
+              markerWidth="8"
+              markerHeight="8"
+              orient="auto-start-reverse"
+            >
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#e04f16"></path>
+            </marker>
+          </defs>
+
+          <g id="asteikko"></g>
+
+          <path
+            id="kaari"
+            class="nuoli piilotettu"
+            marker-end="url(#nuolenkarki)"
+          ></path>
+
+          <g id="hyppyRyhmä" class="hyppy piilotettu">
+            <rect id="hyppyTausta" class="hyppy-tausta" width="150" height="54"></rect>
+            <text id="hyppyTermi" class="hyppy-termi"></text>
+            <text id="hyppySelite" class="hyppy-selite"></text>
+          </g>
+
+          <circle id="aloitusPiste" class="piste aloitus piilotettu" r="14"></circle>
+          <text id="aloitusTeksti" class="piste-teksti sininen-teksti piilotettu"></text>
+
+          <circle id="valiPiste" class="piste valitulos piilotettu" r="14"></circle>
+          <text id="valiTeksti" class="piste-teksti oranssi-teksti piilotettu"></text>
+
+          <circle id="loppuPiste" class="piste lopputulos piilotettu" r="14"></circle>
+          <text id="loppuTeksti" class="piste-teksti vihrea-teksti piilotettu"></text>
+        </svg>
+      </div>
+    </section>
+
+    <section class="kortti">
+      <div class="painikkeet">
+        <button id="edellinenPainike" class="toissijainen" disabled>
+          ← Edellinen vaihe
+        </button>
+
+        <button id="seuraavaPainike">
+          Seuraava vaihe →
+        </button>
+
+        <button id="alustaPainike" class="toissijainen">
+          Aloita alusta
+        </button>
+      </div>
+    </section>
+
+    <section id="vastausLaatikko" class="kortti vastaus piilossa">
+      <h2>Tehtävä ratkaistu</h2>
+      <p>
+        Ensin tehtiin kertolasku, sitten yhdistettiin samanmuotoiset termit.
+      </p>
+      <div class="malli">
+        2 · 3x − 5x + 2x = 6x − 5x + 2x = x + 2x = 3x
+      </div>
+    </section>
+  </main>
+
+  <script>
+    /*
+      Tehtävä:
+      2 · 3x − 5x + 2x
+
+      Vaihe 1: 2 · 3x = 6x
+      Vaihe 2: 6x − 5x = x
+      Vaihe 3: x + 2x = 3x
+    */
+
+    const min = -10;
+    const max = 10;
+
+    const vasen = 55;
+    const oikea = 865;
+    const yAkseli = 210;
+
+    let vaihe = 1;
+
+    const asteikko = document.getElementById("asteikko");
+    const kaari = document.getElementById("kaari");
+    const hyppyRyhmä = document.getElementById("hyppyRyhmä");
+    const hyppyTausta = document.getElementById("hyppyTausta");
+    const hyppyTermi = document.getElementById("hyppyTermi");
+    const hyppySelite = document.getElementById("hyppySelite");
+
+    const aloitusPiste = document.getElementById("aloitusPiste");
+    const valiPiste = document.getElementById("valiPiste");
+    const loppuPiste = document.getElementById("loppuPiste");
+
+    const aloitusTeksti = document.getElementById("aloitusTeksti");
+    const valiTeksti = document.getElementById("valiTeksti");
+    const loppuTeksti = document.getElementById("loppuTeksti");
+
+    const vaiheOtsikko = document.getElementById("vaiheOtsikko");
+    const laskuNakyma = document.getElementById("laskuNakyma");
+    const selite = document.getElementById("selite");
+
+    const edellinenPainike = document.getElementById("edellinenPainike");
+    const seuraavaPainike = document.getElementById("seuraavaPainike");
+    const alustaPainike = document.getElementById("alustaPainike");
+    const vastausLaatikko = document.getElementById("vastausLaatikko");
+
+    function xKoordinaatti(luku) {
+      return vasen + ((luku - min) / (max - min)) * (oikea - vasen);
+    }
+
+    function asetaNakyvyys(elementti, nakyva) {
+      elementti.classList.toggle("piilotettu", !nakyva);
+    }
+
+    function muotoileTermi(kerroin) {
+      if (kerroin === 0) return "0x";
+      if (kerroin === 1) return "x";
+      if (kerroin === -1) return "−x";
+      return `${kerroin}x`.replace("-", "−");
+    }
+
+    function piirraAsteikko() {
+      const akseli = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "line"
+      );
+
+      akseli.setAttribute("x1", vasen);
+      akseli.setAttribute("x2", oikea);
+      akseli.setAttribute("y1", yAkseli);
+      akseli.setAttribute("y2", yAkseli);
+      akseli.setAttribute("class", "akseli");
+      asteikko.appendChild(akseli);
+
+      for (let i = min; i <= max; i++) {
+        const x = xKoordinaatti(i);
+
+        const viiva = document.createElementNS(
+          "http://www.w3.org/2000/svg",
+          "line"
+        );
+
+        viiva.setAttribute("x1", x);
+        viiva.setAttribute("x2", x);
+        viiva.setAttribute("y1", yAkseli - (i % 5 === 0 ? 13 : 8));
+        viiva.setAttribute("y2", yAkseli + (i % 5 === 0 ? 13 : 8));
+        viiva.setAttribute("class", i === 0 ? "nolla" : "aste");
+        asteikko.appendChild(viiva);
+
+        const numero = document.createElementNS(
+          "http://www.w3.org/2000/svg",
+          "text"
+        );
+
+        numero.setAttribute("x", x);
+        numero.setAttribute("y", yAkseli + 36);
+        numero.setAttribute("class", "numero");
+        numero.textContent = i;
+        asteikko.appendChild(numero);
+      }
+    }
+
+    function asetaPiste(piste, teksti, kerroin, nakyva) {
+      const x = xKoordinaatti(kerroin);
+
+      piste.setAttribute("cx", x);
+      piste.setAttribute("cy", yAkseli);
+
+      teksti.setAttribute("x", x);
+      teksti.setAttribute("y", yAkseli - 24);
+      teksti.textContent = muotoileTermi(kerroin);
+
+      asetaNakyvyys(piste, nakyva);
+      asetaNakyvyys(teksti, nakyva);
+    }
+
+    function piirraHyppy(alku, loppu, termi) {
+      const xAlku = xKoordinaatti(alku);
+      const xLoppu = xKoordinaatti(loppu);
+      const keskiX = (xAlku + xLoppu) / 2;
+      const muutos = loppu - alku;
+      const korkeus = Math.min(130, 60 + Math.abs(muutos) * 10);
+
+      kaari.setAttribute(
+        "d",
+        `M ${xAlku} ${yAkseli - 17}
+         Q ${keskiX} ${yAkseli - korkeus}
+           ${xLoppu} ${yAkseli - 17}`
+      );
+
+      const kenttaX = keskiX - 75;
+      const kenttaY = Math.max(15, yAkseli - korkeus - 67);
+
+      hyppyTausta.setAttribute("x", kenttaX);
+      hyppyTausta.setAttribute("y", kenttaY);
+
+      hyppyTermi.setAttribute("x", keskiX);
+      hyppyTermi.setAttribute("y", kenttaY + 22);
+      hyppyTermi.textContent = termi;
+
+      hyppySelite.setAttribute("x", keskiX);
+      hyppySelite.setAttribute("y", kenttaY + 42);
+
+      if (muutos > 0) {
+        hyppySelite.textContent = `${muutos} askelta oikealle`;
+      } else {
+        hyppySelite.textContent = `${Math.abs(muutos)} askelta vasemmalle`;
+      }
+
+      asetaNakyvyys(kaari, true);
+      asetaNakyvyys(hyppyRyhmä, true);
+    }
+
+    function paivitaVaihepalkki() {
+      for (let i = 1; i <= 3; i++) {
+        const piste = document.getElementById(`vaihePiste${i}`);
+        piste.classList.remove("aktiivinen", "valmis");
+
+        if (i < vaihe) {
+          piste.classList.add("valmis");
+        } else if (i === vaihe) {
+          piste.classList.add("aktiivinen");
+        }
+      }
+    }
+
+    function paivitaNakyma() {
+      paivitaVaihepalkki();
+
+      // Piilotetaan nuoli, ennen kuin tarpeelliset elementit näytetään.
+      asetaNakyvyys(kaari, false);
+      asetaNakyvyys(hyppyRyhmä, false);
+
+      // Vaihe 1: vain kertolasku.
+      if (vaihe === 1) {
+        vaiheOtsikko.textContent =
+          "Vaihe 1: Kertolasku ennen yhteen- ja vähennyslaskua";
+
+        laskuNakyma.innerHTML =
+          '<span class="korostus-kertolasku">2 · 3x</span> − 5x + 2x';
+
+        selite.innerHTML =
+          'Laske ensin korostettu kertolasku: <strong>2 · 3x = 6x</strong>.';
+
+        asetaPiste(aloitusPiste, aloitusTeksti, 6, true);
+        asetaPiste(valiPiste, valiTeksti, 1, false);
+        asetaPiste(loppuPiste, loppuTeksti, 3, false);
+      }
+
+      // Vaihe 2: 6x - 5x = x
+      if (vaihe === 2) {
+        vaiheOtsikko.textContent =
+          "Vaihe 2: Yhdistä kaksi ensimmäistä samanmuotoista termiä";
+
+        laskuNakyma.innerHTML =
+          '<span class="korostus-yhdista">6x − 5x</span> + 2x';
+
+        selite.innerHTML =
+          'Lähde kertoimesta <strong>6</strong>. Vähennä <strong>5</strong>, joten päädyt kertoimeen <strong>1</strong>: <strong>6x − 5x = x</strong>.';
+
+        asetaPiste(aloitusPiste, aloitusTeksti, 6, true);
+        asetaPiste(valiPiste, valiTeksti, 1, true);
+        asetaPiste(loppuPiste, loppuTeksti, 3, false);
+
+        piirraHyppy(6, 1, "−5x");
+      }
+
+      // Vaihe 3: x + 2x = 3x
+      if (vaihe === 3) {
+        vaiheOtsikko.textContent =
+          "Vaihe 3: Yhdistä jäljelle jääneet samanmuotoiset termit";
+
+        laskuNakyma.innerHTML =
+          '<span class="korostus-viimeinen">x + 2x</span> = 3x';
+
+        selite.innerHTML =
+          'Lähde kertoimesta <strong>1</strong>. Lisää <strong>2</strong>, joten päädyt kertoimeen <strong>3</strong>: <strong>x + 2x = 3x</strong>.';
+
+        asetaPiste(aloitusPiste, aloitusTeksti, 1, false);
+        asetaPiste(valiPiste, valiTeksti, 1, true);
+        asetaPiste(loppuPiste, loppuTeksti, 3, true);
+
+        piirraHyppy(1, 3, "+2x");
+      }
+
+      edellinenPainike.disabled = vaihe === 1;
+
+      if (vaihe === 3) {
+        seuraavaPainike.disabled = true;
+        vastausLaatikko.classList.remove("piilossa");
+      } else {
+        seuraavaPainike.disabled = false;
+        vastausLaatikko.classList.add("piilossa");
+      }
+    }
+
+    edellinenPainike.addEventListener("click", () => {
+      if (vaihe > 1) {
+        vaihe--;
+        paivitaNakyma();
+      }
+    });
+
+    seuraavaPainike.addEventListener("click", () => {
+      if (vaihe < 3) {
+        vaihe++;
+        paivitaNakyma();
+      }
+    });
+
+    alustaPainike.addEventListener("click", () => {
+      vaihe = 1;
+      paivitaNakyma();
+    });
+
+    piirraAsteikko();
+    paivitaNakyma();
+  </script>
+</body>
+</html>
