@@ -132,8 +132,39 @@
       pointer-events: none;
     }
 
-    .sininen-teksti { fill: var(--sininen); }
-    .vihrea-teksti { fill: var(--vihrea); }
+    .sininen-teksti {
+      fill: var(--sininen);
+    }
+
+    .vihrea-teksti {
+      fill: var(--vihrea);
+    }
+
+    /* Nuolen yläpuolella oleva hyppykenttä */
+    .hyppy-kentta {
+      fill: #fff4ed;
+      stroke: var(--oranssi);
+      stroke-width: 2;
+      rx: 10;
+      ry: 10;
+      pointer-events: none;
+    }
+
+    .hyppy-termi {
+      fill: var(--oranssi);
+      font-size: 19px;
+      font-weight: bold;
+      text-anchor: middle;
+      pointer-events: none;
+    }
+
+    .hyppy-selite {
+      fill: #7a271a;
+      font-size: 13px;
+      font-weight: 600;
+      text-anchor: middle;
+      pointer-events: none;
+    }
 
     .legenda {
       display: flex;
@@ -184,7 +215,8 @@
       border-collapse: collapse;
     }
 
-    th, td {
+    th,
+    td {
       padding: 10px;
       border-bottom: 1px solid #d0d5dd;
       text-align: left;
@@ -204,329 +236,454 @@
 </head>
 
 <body>
-<main>
-  <h1>Samanmuotoisten termien laskeminen lukusuoralla</h1>
+  <main>
+    <h1>Samanmuotoisten termien laskeminen lukusuoralla</h1>
 
-  <p class="ohje">
-    Lukusuora kuvaa termin <strong>kerrointa</strong>. Muuttuja <strong>x</strong>
-    pysyy samana koko laskun ajan. Vedä sinistä aloituspistettä tai vihreää
-    lopputulospistettä, jolloin lasku muuttuu automaattisesti.
-  </p>
-
-  <section class="kortti lasku" aria-live="polite">
-    <div id="laskuTeksti">3x − 5x = −2x</div>
-    <p id="selite">
-      Aloita kertoimesta 3. Vähennä 5, joten siirryt viisi askelta vasemmalle
-      ja päädyt kertoimeen −2.
+    <p class="ohje">
+      Lukusuora kuvaa termin <strong>kerrointa</strong>. Muuttuja
+      <strong>x</strong> pysyy samana koko laskun ajan. Vedä sinistä
+      aloituspistettä tai vihreää lopputulospistettä, jolloin lasku ja
+      nuolen hyppykenttä muuttuvat automaattisesti.
     </p>
-  </section>
 
-  <section class="kortti">
-    <div class="lukusuora-alue">
-      <svg id="svg"
-           viewBox="0 0 920 350"
-           role="img"
-           aria-label="Vuorovaikutteinen lukusuora polynomien laskemiseen">
+    <section class="kortti lasku" aria-live="polite">
+      <div id="laskuTeksti">3x − 5x = −2x</div>
+      <p id="selite">
+        Aloita kertoimesta 3. Vähennä 5, joten siirryt viisi askelta
+        vasemmalle ja päädyt kertoimeen −2.
+      </p>
+    </section>
 
-        <defs>
-          <marker id="nuolenkarki"
-                  viewBox="0 0 10 10"
-                  refX="8"
-                  refY="5"
-                  markerWidth="8"
-                  markerHeight="8"
-                  orient="auto-start-reverse">
-            <path d="M 0 0 L 10 5 L 0 10 z" fill="#e04f16"></path>
-          </marker>
-        </defs>
+    <section class="kortti">
+      <div class="lukusuora-alue">
+        <svg
+          id="svg"
+          viewBox="0 0 920 350"
+          role="img"
+          aria-label="Vuorovaikutteinen lukusuora polynomien laskemiseen"
+        >
+          <defs>
+            <marker
+              id="nuolenkarki"
+              viewBox="0 0 10 10"
+              refX="8"
+              refY="5"
+              markerWidth="8"
+              markerHeight="8"
+              orient="auto-start-reverse"
+            >
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#e04f16"></path>
+            </marker>
+          </defs>
 
-        <g id="asteikko"></g>
+          <!-- Lukusuoran asteikko -->
+          <g id="asteikko"></g>
 
-        <path id="kaari"
-              class="nuoli"
-              marker-end="url(#nuolenkarki)"></path>
+          <!-- Kaarinuoli -->
+          <path
+            id="kaari"
+            class="nuoli"
+            marker-end="url(#nuolenkarki)"
+          ></path>
 
-        <circle id="alkupiste"
-                class="piste alkupiste"
-                r="14"></circle>
-        <text id="alkuteksti"
-              class="piste-teksti sininen-teksti"></text>
+          <!-- Nuolen yläpuolella oleva hyppykenttä -->
+          <rect
+            id="hyppyKentta"
+            class="hyppy-kentta"
+            width="148"
+            height="54"
+          ></rect>
 
-        <circle id="lopputulos"
-                class="piste lopputulos"
-                r="14"></circle>
-        <text id="lopputeksti"
-              class="piste-teksti vihrea-teksti"></text>
-      </svg>
-    </div>
+          <text id="hyppyTermi" class="hyppy-termi"></text>
+          <text id="hyppySelite" class="hyppy-selite"></text>
 
-    <div class="legenda">
-      <span>
-        <span class="varimerkki" style="background:#155eef"></span>
-        Ensimmäisen termin kerroin
-      </span>
-      <span>
-        <span class="varimerkki" style="background:#e04f16"></span>
-        Toisen termin vaikutus
-      </span>
-      <span>
-        <span class="varimerkki" style="background:#07883f"></span>
-        Tulotermin kerroin
-      </span>
-    </div>
-  </section>
+          <!-- Aloituspiste -->
+          <circle
+            id="alkupiste"
+            class="piste alkupiste"
+            r="14"
+          ></circle>
 
-  <section class="kortti">
-    <strong>Laskun vaiheet</strong>
+          <text
+            id="alkuteksti"
+            class="piste-teksti sininen-teksti"
+          ></text>
 
-    <table>
-      <thead>
-        <tr>
-          <th>Vaihe</th>
-          <th>Termi</th>
-          <th>Kerroin</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>Aloitus</td>
-          <td id="aloitusTermi">3x</td>
-          <td id="aloitusKerroin">3</td>
-        </tr>
-        <tr>
-          <td>Lisättävä tai vähennettävä termi</td>
-          <td id="muutosTermi">−5x</td>
-          <td id="muutosKerroin">−5</td>
-        </tr>
-        <tr>
-          <td>Lopputulos</td>
-          <td id="tulosTermi">−2x</td>
-          <td id="tulosKerroin">−2</td>
-        </tr>
-      </tbody>
-    </table>
-  </section>
+          <!-- Lopputulospiste -->
+          <circle
+            id="lopputulos"
+            class="piste lopputulos"
+            r="14"
+          ></circle>
 
-  <section class="kortti">
-    <div class="painikkeet">
-      <button onclick="asetaLasku(3, -2)">3x − 5x = −2x</button>
-      <button class="esimerkki" onclick="asetaLasku(4, 10)">4x + 6x = 10x</button>
-      <button class="esimerkki" onclick="asetaLasku(-2, 5)">−2x + 7x = 5x</button>
-      <button class="esimerkki" onclick="asetaLasku(8, -4)">8x − 12x = −4x</button>
-      <button class="esimerkki" onclick="asetaLasku(-6, -6)">−6x + 0x = −6x</button>
-    </div>
-  </section>
+          <text
+            id="lopputeksti"
+            class="piste-teksti vihrea-teksti"
+          ></text>
+        </svg>
+      </div>
 
-  <aside class="kortti vinkki">
-    <strong>Opetusvinkki:</strong> Korosta, että lukusuoralla ei liiku itse
-    muuttuja $x$, vaan sen <strong>kerroin</strong>. Esimerkiksi
-    $$
-    3x - 5x = (3 - 5)x = -2x.
-    $$
-    Tämä auttaa oppilasta näkemään, että samanmuotoiset termit voidaan yhdistää
-    samalla tavoin kuin kokonaisluvut.
-  </aside>
-</main>
+      <div class="legenda">
+        <span>
+          <span class="varimerkki" style="background:#155eef"></span>
+          Ensimmäisen termin kerroin
+        </span>
 
-<script>
-  // Näkyvän lukusuoran rajat.
-  const min = -15;
-  const max = 15;
+        <span>
+          <span class="varimerkki" style="background:#e04f16"></span>
+          Toisen termin vaikutus
+        </span>
 
-  const vasen = 55;
-  const oikea = 865;
-  const yAkseli = 245;
+        <span>
+          <span class="varimerkki" style="background:#07883f"></span>
+          Tulotermin kerroin
+        </span>
+      </div>
+    </section>
 
-  // alku: ensimmäisen termin kerroin
-  // loppu: tulotermin kerroin
-  // muutos = toinen termi eli loppu - alku
-  let alku = 3;
-  let loppu = -2;
+    <section class="kortti">
+      <strong>Laskun vaiheet</strong>
 
-  let vedettava = null;
+      <table>
+        <thead>
+          <tr>
+            <th>Vaihe</th>
+            <th>Termi</th>
+            <th>Kerroin</th>
+          </tr>
+        </thead>
 
-  const svg = document.getElementById("svg");
-  const asteikko = document.getElementById("asteikko");
-  const kaari = document.getElementById("kaari");
-  const alkupiste = document.getElementById("alkupiste");
-  const lopputulospiste = document.getElementById("lopputulos");
-  const alkuteksti = document.getElementById("alkuteksti");
-  const lopputeksti = document.getElementById("lopputeksti");
+        <tbody>
+          <tr>
+            <td>Aloitus</td>
+            <td id="aloitusTermi">3x</td>
+            <td id="aloitusKerroin">3</td>
+          </tr>
 
-  function xKoordinaatti(luku) {
-    return vasen + ((luku - min) / (max - min)) * (oikea - vasen);
-  }
+          <tr>
+            <td>Lisättävä tai vähennettävä termi</td>
+            <td id="muutosTermi">−5x</td>
+            <td id="muutosKerroin">−5</td>
+          </tr>
 
-  function lukuXKoordinaatista(x) {
-    const luku = min + ((x - vasen) / (oikea - vasen)) * (max - min);
-    return Math.max(min, Math.min(max, Math.round(luku)));
-  }
+          <tr>
+            <td>Lopputulos</td>
+            <td id="tulosTermi">−2x</td>
+            <td id="tulosKerroin">−2</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
 
-  function muotoileTermi(kerroin) {
-    if (kerroin === 0) return "0x";
-    if (kerroin === 1) return "x";
-    if (kerroin === -1) return "−x";
-    return `${kerroin}x`.replace("-", "−");
-  }
+    <section class="kortti">
+      <div class="painikkeet">
+        <button onclick="asetaLasku(3, -2)">
+          3x − 5x = −2x
+        </button>
 
-  // Esimerkiksi + 5x tai − 5x laskun keskelle.
-  function muotoileLaskumerkkiJaTermi(kerroin) {
-    if (kerroin > 0) return `+ ${muotoileTermi(kerroin)}`;
-    if (kerroin < 0) return `− ${muotoileTermi(Math.abs(kerroin))}`;
-    return "+ 0x";
-  }
+        <button class="esimerkki" onclick="asetaLasku(4, 10)">
+          4x + 6x = 10x
+        </button>
 
-  function piirraAsteikko() {
-    asteikko.innerHTML = "";
+        <button class="esimerkki" onclick="asetaLasku(-2, 5)">
+          −2x + 7x = 5x
+        </button>
 
-    const akseli = document.createElementNS("http://www.w3.org/2000/svg", "line");
-    akseli.setAttribute("x1", vasen);
-    akseli.setAttribute("x2", oikea);
-    akseli.setAttribute("y1", yAkseli);
-    akseli.setAttribute("y2", yAkseli);
-    akseli.setAttribute("class", "akseli");
-    asteikko.appendChild(akseli);
+        <button class="esimerkki" onclick="asetaLasku(8, -4)">
+          8x − 12x = −4x
+        </button>
 
-    for (let i = min; i <= max; i++) {
-      const x = xKoordinaatti(i);
+        <button class="esimerkki" onclick="asetaLasku(-6, -6)">
+          −6x + 0x = −6x
+        </button>
+      </div>
+    </section>
 
-      const viiva = document.createElementNS("http://www.w3.org/2000/svg", "line");
-      viiva.setAttribute("x1", x);
-      viiva.setAttribute("x2", x);
-      viiva.setAttribute("y1", yAkseli - (i % 5 === 0 ? 13 : 8));
-      viiva.setAttribute("y2", yAkseli + (i % 5 === 0 ? 13 : 8));
-      viiva.setAttribute("class", i === 0 ? "nolla" : "aste");
-      asteikko.appendChild(viiva);
+    <aside class="kortti vinkki">
+      <strong>Opetusvinkki:</strong> Lukusuoralla liikutaan vain termien
+      <strong>kertoimilla</strong>. Muuttuja $x$ säilyy mukana kaikissa
+      termeissä. Esimerkiksi:
+      <br><br>
+      $$
+      3x - 5x = (3 - 5)x = -2x.
+      $$
+    </aside>
+  </main>
 
-      const numero = document.createElementNS("http://www.w3.org/2000/svg", "text");
-      numero.setAttribute("x", x);
-      numero.setAttribute("y", yAkseli + 36);
-      numero.setAttribute("class", "numero");
-      numero.textContent = i;
-      asteikko.appendChild(numero);
+  <script>
+    // Näkyvän lukusuoran rajat.
+    const min = -15;
+    const max = 15;
+
+    // SVG-alueen mitat ja lukusuoran korkeus.
+    const vasen = 55;
+    const oikea = 865;
+    const yAkseli = 245;
+
+    // alku = ensimmäisen termin kerroin
+    // loppu = tulotermin kerroin
+    // muutos = lisättävän tai vähennettävän termin kerroin
+    let alku = 3;
+    let loppu = -2;
+
+    let vedettava = null;
+
+    const svg = document.getElementById("svg");
+    const asteikko = document.getElementById("asteikko");
+
+    const kaari = document.getElementById("kaari");
+
+    const hyppyKentta = document.getElementById("hyppyKentta");
+    const hyppyTermi = document.getElementById("hyppyTermi");
+    const hyppySelite = document.getElementById("hyppySelite");
+
+    const alkupiste = document.getElementById("alkupiste");
+    const lopputulospiste = document.getElementById("lopputulos");
+
+    const alkuteksti = document.getElementById("alkuteksti");
+    const lopputeksti = document.getElementById("lopputeksti");
+
+    // Muuntaa kokonaisluvun SVG:n x-koordinaatiksi.
+    function xKoordinaatti(luku) {
+      return vasen + ((luku - min) / (max - min)) * (oikea - vasen);
     }
-  }
 
-  function paivita() {
-    const muutos = loppu - alku;
+    // Muuntaa SVG:n x-koordinaatin lähimmäksi kokonaisluvuksi.
+    function lukuXKoordinaatista(x) {
+      const luku = min + ((x - vasen) / (oikea - vasen)) * (max - min);
+      return Math.max(min, Math.min(max, Math.round(luku)));
+    }
 
-    const xAlku = xKoordinaatti(alku);
-    const xLoppu = xKoordinaatti(loppu);
-    const keskiX = (xAlku + xLoppu) / 2;
-    const korkeus = Math.min(150, 60 + Math.abs(muutos) * 8);
+    // Muotoilee termin. Esimerkiksi 3 → 3x, -1 → −x ja 0 → 0x.
+    function muotoileTermi(kerroin) {
+      if (kerroin === 0) return "0x";
+      if (kerroin === 1) return "x";
+      if (kerroin === -1) return "−x";
+      return `${kerroin}x`.replace("-", "−");
+    }
 
-    // Piirretään kaarinuoli.
-    if (alku === loppu) {
-      kaari.setAttribute(
-        "d",
-        `M ${xAlku} ${yAkseli - 17}
-         C ${xAlku + 42} ${yAkseli - 115},
-           ${xAlku - 42} ${yAkseli - 115},
-           ${xAlku} ${yAkseli - 17}`
+    // Muotoilee laskussa näkyvän operaation ja toisen termin.
+    function muotoileLaskumerkkiJaTermi(kerroin) {
+      if (kerroin > 0) return `+ ${muotoileTermi(kerroin)}`;
+      if (kerroin < 0) return `− ${muotoileTermi(Math.abs(kerroin))}`;
+      return "+ 0x";
+    }
+
+    // Piirtää lukusuoran asteikon.
+    function piirraAsteikko() {
+      asteikko.innerHTML = "";
+
+      const akseli = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "line"
       );
-    } else {
-      kaari.setAttribute(
-        "d",
-        `M ${xAlku} ${yAkseli - 17}
-         Q ${keskiX} ${yAkseli - korkeus}
-           ${xLoppu} ${yAkseli - 17}`
-      );
+
+      akseli.setAttribute("x1", vasen);
+      akseli.setAttribute("x2", oikea);
+      akseli.setAttribute("y1", yAkseli);
+      akseli.setAttribute("y2", yAkseli);
+      akseli.setAttribute("class", "akseli");
+
+      asteikko.appendChild(akseli);
+
+      for (let i = min; i <= max; i++) {
+        const x = xKoordinaatti(i);
+
+        const viiva = document.createElementNS(
+          "http://www.w3.org/2000/svg",
+          "line"
+        );
+
+        viiva.setAttribute("x1", x);
+        viiva.setAttribute("x2", x);
+        viiva.setAttribute("y1", yAkseli - (i % 5 === 0 ? 13 : 8));
+        viiva.setAttribute("y2", yAkseli + (i % 5 === 0 ? 13 : 8));
+        viiva.setAttribute("class", i === 0 ? "nolla" : "aste");
+
+        asteikko.appendChild(viiva);
+
+        const numero = document.createElementNS(
+          "http://www.w3.org/2000/svg",
+          "text"
+        );
+
+        numero.setAttribute("x", x);
+        numero.setAttribute("y", yAkseli + 36);
+        numero.setAttribute("class", "numero");
+        numero.textContent = i;
+
+        asteikko.appendChild(numero);
+      }
     }
 
-    // Piirretään pisteet.
-    alkupiste.setAttribute("cx", xAlku);
-    alkupiste.setAttribute("cy", yAkseli);
+    // Päivittää laskun, pisteet, kaarinuolen ja hyppykentän.
+    function paivita() {
+      const muutos = loppu - alku;
 
-    lopputulospiste.setAttribute("cx", xLoppu);
-    lopputulospiste.setAttribute("cy", yAkseli);
+      const xAlku = xKoordinaatti(alku);
+      const xLoppu = xKoordinaatti(loppu);
+      const keskiX = (xAlku + xLoppu) / 2;
 
-    alkuteksti.setAttribute("x", xAlku);
-    alkuteksti.setAttribute("y", yAkseli - 25);
-    alkuteksti.textContent = muotoileTermi(alku);
+      // Nuolen kaaren korkeus kasvaa loikan pituuden mukaan.
+      const korkeus = Math.min(150, 60 + Math.abs(muutos) * 8);
 
-    lopputeksti.setAttribute("x", xLoppu);
-    lopputeksti.setAttribute("y", yAkseli - 25);
-    lopputeksti.textContent = muotoileTermi(loppu);
+      // Piirretään kaarinuoli.
+      if (alku === loppu) {
+        kaari.setAttribute(
+          "d",
+          `M ${xAlku} ${yAkseli - 17}
+           C ${xAlku + 42} ${yAkseli - 115},
+             ${xAlku - 42} ${yAkseli - 115},
+             ${xAlku} ${yAkseli - 17}`
+        );
+      } else {
+        kaari.setAttribute(
+          "d",
+          `M ${xAlku} ${yAkseli - 17}
+           Q ${keskiX} ${yAkseli - korkeus}
+             ${xLoppu} ${yAkseli - 17}`
+        );
+      }
 
-    // Päivitetään laskumerkintä.
-    document.getElementById("laskuTeksti").textContent =
-      `${muotoileTermi(alku)} ${muotoileLaskumerkkiJaTermi(muutos)} = ${muotoileTermi(loppu)}`;
+      // Hyppykentän sijainti nuolen yläpuolella.
+      const kentanLeveys = 148;
+      const kentanKorkeus = 54;
+      const kentanX = keskiX - kentanLeveys / 2;
+      const kentanY = Math.max(18, yAkseli - korkeus - 68);
 
-    let sanallinenMuutos;
+      hyppyKentta.setAttribute("x", kentanX);
+      hyppyKentta.setAttribute("y", kentanY);
 
-    if (muutos > 0) {
-      sanallinenMuutos =
-        `lisää kerrointa ${muutos}, joten siirryt ${muutos} askelta oikealle`;
-    } else if (muutos < 0) {
-      sanallinenMuutos =
-        `vähennä kerrointa ${Math.abs(muutos)}, joten siirryt ${Math.abs(muutos)} askelta vasemmalle`;
-    } else {
-      sanallinenMuutos = "et muuta kerrointa";
+      hyppyTermi.setAttribute("x", keskiX);
+      hyppyTermi.setAttribute("y", kentanY + 22);
+      hyppyTermi.textContent = muotoileTermi(muutos);
+
+      hyppySelite.setAttribute("x", keskiX);
+      hyppySelite.setAttribute("y", kentanY + 42);
+
+      if (muutos > 0) {
+        hyppySelite.textContent = `${muutos} askelta oikealle`;
+      } else if (muutos < 0) {
+        hyppySelite.textContent =
+          `${Math.abs(muutos)} askelta vasemmalle`;
+      } else {
+        hyppySelite.textContent = "0 askelta";
+      }
+
+      // Päivitetään aloitus- ja lopputulospisteiden paikat.
+      alkupiste.setAttribute("cx", xAlku);
+      alkupiste.setAttribute("cy", yAkseli);
+
+      lopputulospiste.setAttribute("cx", xLoppu);
+      lopputulospiste.setAttribute("cy", yAkseli);
+
+      // Päivitetään pisteiden tekstit.
+      alkuteksti.setAttribute("x", xAlku);
+      alkuteksti.setAttribute("y", yAkseli - 25);
+      alkuteksti.textContent = muotoileTermi(alku);
+
+      lopputeksti.setAttribute("x", xLoppu);
+      lopputeksti.setAttribute("y", yAkseli - 25);
+      lopputeksti.textContent = muotoileTermi(loppu);
+
+      // Päivitetään laskumerkintä.
+      document.getElementById("laskuTeksti").textContent =
+        `${muotoileTermi(alku)} ${muotoileLaskumerkkiJaTermi(muutos)} = ${muotoileTermi(loppu)}`;
+
+      // Sanallinen selite.
+      let sanallinenMuutos;
+
+      if (muutos > 0) {
+        sanallinenMuutos =
+          `Lisää kerrointa ${muutos}, joten siirryt ${muutos} askelta oikealle`;
+      } else if (muutos < 0) {
+        sanallinenMuutos =
+          `Vähennä kerrointa ${Math.abs(muutos)}, joten siirryt ${Math.abs(muutos)} askelta vasemmalle`;
+      } else {
+        sanallinenMuutos = "Et muuta kerrointa";
+      }
+
+      document.getElementById("selite").textContent =
+        `Aloita kertoimesta ${alku}. ${sanallinenMuutos} ja päädyt kertoimeen ${loppu}. Muuttuja x säilyy mukana kaikissa termeissä.`;
+
+      // Päivitetään laskun vaiheiden taulukko.
+      document.getElementById("aloitusTermi").textContent =
+        muotoileTermi(alku);
+
+      document.getElementById("aloitusKerroin").textContent = alku;
+
+      document.getElementById("muutosTermi").textContent =
+        muotoileTermi(muutos);
+
+      document.getElementById("muutosKerroin").textContent = muutos;
+
+      document.getElementById("tulosTermi").textContent =
+        muotoileTermi(loppu);
+
+      document.getElementById("tulosKerroin").textContent = loppu;
     }
 
-    document.getElementById("selite").textContent =
-      `Aloita kertoimesta ${alku}. ${sanallinenMuutos} ja päädyt kertoimeen ${loppu}. Muuttuja x säilyy mukana kaikissa termeissä.`;
+    // Asettaa valmiin esimerkkilaskun.
+    function asetaLasku(uusiAlku, uusiLoppu) {
+      alku = uusiAlku;
+      loppu = uusiLoppu;
+      paivita();
+    }
 
-    // Päivitetään taulukko.
-    document.getElementById("aloitusTermi").textContent = muotoileTermi(alku);
-    document.getElementById("aloitusKerroin").textContent = alku;
+    // Muuntaa hiiren tai kosketuksen koordinaatin SVG-koordinaatiksi.
+    function haeSVGKoordinaatti(tapahtuma) {
+      const piste = svg.createSVGPoint();
+      piste.x = tapahtuma.clientX;
+      piste.y = tapahtuma.clientY;
 
-    document.getElementById("muutosTermi").textContent = muotoileTermi(muutos);
-    document.getElementById("muutosKerroin").textContent = muutos;
+      return piste.matrixTransform(svg.getScreenCTM().inverse());
+    }
 
-    document.getElementById("tulosTermi").textContent = muotoileTermi(loppu);
-    document.getElementById("tulosKerroin").textContent = loppu;
-  }
+    // Aloittaa pisteen vetämisen.
+    function aloitaVeto(tapahtuma, kohde) {
+      vedettava = kohde;
+      tapahtuma.preventDefault();
+    }
 
-  function asetaLasku(uusiAlku, uusiLoppu) {
-    alku = uusiAlku;
-    loppu = uusiLoppu;
+    // Päivittää vedettävän pisteen sijainnin.
+    function vedonAikana(tapahtuma) {
+      if (!vedettava) return;
+
+      const piste = haeSVGKoordinaatti(tapahtuma);
+      const uusiLuku = lukuXKoordinaatista(piste.x);
+
+      if (vedettava === "alku") {
+        alku = uusiLuku;
+      }
+
+      if (vedettava === "loppu") {
+        loppu = uusiLuku;
+      }
+
+      paivita();
+    }
+
+    function lopetaVeto() {
+      vedettava = null;
+    }
+
+    // Hiiri- ja kosketustoiminnot.
+    alkupiste.addEventListener("pointerdown", (e) => {
+      aloitaVeto(e, "alku");
+    });
+
+    lopputulospiste.addEventListener("pointerdown", (e) => {
+      aloitaVeto(e, "loppu");
+    });
+
+    svg.addEventListener("pointermove", vedonAikana);
+    svg.addEventListener("pointerup", lopetaVeto);
+    svg.addEventListener("pointerleave", lopetaVeto);
+    svg.addEventListener("pointercancel", lopetaVeto);
+
+    // Piirretään sovellus ensimmäisellä avauskerralla.
+    piirraAsteikko();
     paivita();
-  }
-
-  function haeSVGKoordinaatti(tapahtuma) {
-    const piste = svg.createSVGPoint();
-    piste.x = tapahtuma.clientX;
-    piste.y = tapahtuma.clientY;
-    return piste.matrixTransform(svg.getScreenCTM().inverse());
-  }
-
-  function aloitaVeto(tapahtuma, kohde) {
-    vedettava = kohde;
-    tapahtuma.preventDefault();
-  }
-
-  function vedonAikana(tapahtuma) {
-    if (!vedettava) return;
-
-    const piste = haeSVGKoordinaatti(tapahtuma);
-    const uusiLuku = lukuXKoordinaatista(piste.x);
-
-    if (vedettava === "alku") {
-      alku = uusiLuku;
-    }
-
-    if (vedettava === "loppu") {
-      loppu = uusiLuku;
-    }
-
-    paivita();
-  }
-
-  function lopetaVeto() {
-    vedettava = null;
-  }
-
-  alkupiste.addEventListener("pointerdown", (e) => aloitaVeto(e, "alku"));
-  lopputulospiste.addEventListener("pointerdown", (e) => aloitaVeto(e, "loppu"));
-
-  svg.addEventListener("pointermove", vedonAikana);
-  svg.addEventListener("pointerup", lopetaVeto);
-  svg.addEventListener("pointerleave", lopetaVeto);
-  svg.addEventListener("pointercancel", lopetaVeto);
-
-  piirraAsteikko();
-  paivita();
-</script>
+  </script>
 </body>
 </html>
