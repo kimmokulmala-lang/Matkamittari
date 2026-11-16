@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pyöristys</title>
+<style>
+:root{--bg:#fbfaf7;--fg:#1f2430;--mut:#667085;--card:#fff;--bd:#d9d6cc;--ac:#2f6fed;--dn:#dbe8ff;--up:#ffe6c9;--ok:#177a3c;--bad:#b42318;--hl:#fff6bf;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14161b;--fg:#eceef2;--mut:#9aa3b2;--card:#1d2027;--bd:#3a3f4a;--ac:#7aa5ff;--dn:#1f3358;--up:#51361a;--ok:#5fd38a;--bad:#ff8f84;--hl:#4a4318;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:17px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;padding:16px}
+main{max-width:920px;margin:0 auto}
+h1{font-size:1.5rem;margin:0 0 12px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px;margin-bottom:14px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+label{color:var(--mut);font-size:.9rem}
+input[type=text],select,button{font:inherit;padding:8px 12px;border-radius:8px;border:1px solid var(--bd);background:var(--card);color:var(--fg)}
+#num{font-size:1.6rem;width:11ch;font-weight:600;text-align:center}
+button{cursor:pointer}button.p{background:var(--ac);color:#fff;border-color:var(--ac)}
+#expl{font-size:1.1rem;margin:8px 0 0}
+svg{width:100%;height:auto;touch-action:none;cursor:ew-resize;display:block}
+.tbl{width:100%;border-collapse:collapse;overflow-x:auto}
+.wrap{overflow-x:auto}
+th,td{padding:7px 10px;border-bottom:1px solid var(--bd);text-align:left;white-space:nowrap}
+th{color:var(--mut);font-weight:500;font-size:.9rem}
+tbody tr{cursor:pointer}tbody tr.sel{background:var(--hl);font-weight:600}
+.dn{color:var(--ac)}.upc{color:#c2620a}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .upc{color:#ffb066}}
+#fb{font-weight:600}
+</style>
+</head>
+<body>
+<main>
+<h1>Pyöristys</h1>
+
+<div class="card">
+  <div class="row">
+    <label>Luku <input id="num" type="text" inputmode="decimal" value="3,14159"></label>
+    <button id="rnd">Satunnainen luku</button>
+    <label>Pyöristä <select id="prec"></select></label>
+    <label><input type="checkbox" id="prac"> Harjoitustila</label>
+  </div>
+  <div class="row" id="ans" style="margin-top:10px;display:none">
+    <label>Sinun vastauksesi <input id="guess" type="text" inputmode="decimal" size="10"></label>
+    <button class="p" id="chk">Tarkista</button><span id="fb"></span>
+  </div>
+  <p id="expl"></p>
+</div>
+
+<div class="card">
+  <svg id="nl" viewBox="0 0 800 210" role="img" aria-label="Lukusuora"></svg>
+  <div style="color:var(--mut);font-size:.9rem">Voit vetää pistettä lukusuoralla.</div>
+</div>
+
+<div class="card wrap">
+  <table class="tbl"><thead><tr><th>Tarkkuus</th><th>Alempi</th><th>Ylempi</th><th>Puoliväli</th><th>Pyöristetty</th></tr></thead><tbody id="tb"></tbody></table>
+  <div style="color:var(--mut);font-size:.9rem;margin-top:6px">Klikkaa riviä, niin lukusuora näyttää sen tarkkuuden.</div>
+</div>
+</main>
+<script>
+const P=[[3,"tuhansiin"],[2,"satoihin"],[1,"kymmeniin"],[0,"ykkösiin"],[-1,"kymmenesosiin"],[-2,"sadasosiin"],[-3,"tuhannesosiin"]];
+let x=3.14159,k=-2;
+const $=id=>document.getElementById(id);
+const r12=v=>+v.toPrecision(12);
+const fmt=v=>String(parseFloat(v.toFixed(7))).replace(".",",");
+const NS="http://www.w3.org/2000/svg";
+function calc(kk,v=x){const s=Math.pow(10,-kk),t=r12(v*s),fl=Math.floor(t),fr=r12(t-fl);
+ return{s,lo:fl/s,hi:(fl+1)/s,mid:(fl+.5)/s,fr,rd:(fr>=.5?fl+1:fl)/s,up:fr>=.5}}
+const sel=$("prec");
+P.forEach(([v,n])=>{const o=document.createElement("option");o.value=v;o.textContent=n;sel.appendChild(o)});
+sel.value=k;
+function parse(s){const v=parseFloat(String(s).replace(",",".").replace(/\s/g,""));return isNaN(v)?null:Math.max(0,v)}
+function el(n,a,t){const e=document.createElementNS(NS,n);for(const q in a)e.setAttribute(q,a[q]);if(t!=null)e.textContent=t;return e}
+function draw(){
+ const prac=$("prac").checked,c=calc(k),svg=$("nl");svg.innerHTML="";
+ const x0=50,x1=750,xm=(x0+x1)/2,y=120,px=v=>x0+(v-c.lo)/(c.hi-c.lo)*(x1-x0);
+ svg.appendChild(el("rect",{x:x0,y:y-60,width:xm-x0,height:60,fill:"var(--dn)"}));
+ svg.appendChild(el("rect",{x:xm,y:y-60,width:x1-xm,height:60,fill:"var(--up)"}));
+ svg.appendChild(el("text",{x:(x0+xm)/2,y:y-40,"text-anchor":"middle",fill:"var(--fg)","font-size":15},"pyöristyy alas"));
+ svg.appendChild(el("text",{x:(xm+x1)/2,y:y-40,"text-anchor":"middle",fill:"var(--fg)","font-size":15},"pyöristyy ylös"));
+ svg.appendChild(el("line",{x1:x0-20,x2:x1+20,y1:y,y2:y,stroke:"var(--fg)","stroke-width":3}));
+ for(let i=0;i<=10;i++){const X=x0+i*(x1-x0)/10,big=i%5==0;
+  svg.appendChild(el("line",{x1:X,x2:X,y1:y-(big?14:8),y2:y+(big?14:8),stroke:"var(--fg)","stroke-width":big?3:1.5}))}
+ [[x0,c.lo,"Alempi"],[xm,c.mid,"Puoliväli"],[x1,c.hi,"Ylempi"]].forEach(([X,v,n])=>{
+  svg.appendChild(el("text",{x:X,y:y+38,"text-anchor":"middle",fill:"var(--fg)","font-size":20,"font-weight":600},fmt(v)));
+  svg.appendChild(el("text",{x:X,y:y+58,"text-anchor":"middle",fill:"var(--mut)","font-size":13},n))});
+ const X=px(x);
+ if(!prac){const tx=px(c.rd);
+  if(Math.abs(tx-X)>6){svg.appendChild(el("path",{d:`M${X} ${y+78} Q${(X+tx)/2} ${y+112} ${tx} ${y+78}`,fill:"none",stroke:c.up?"#c2620a":"var(--ac)","stroke-width":3,"stroke-dasharray":"6 4"}));
+   svg.appendChild(el("path",{d:`M${tx} ${y+78} l-7 9 m7 -9 l8 8`,fill:"none",stroke:c.up?"#c2620a":"var(--ac)","stroke-width":3}))}
+  svg.appendChild(el("circle",{cx:tx,cy:y,r:11,fill:"none",stroke:ok(),"stroke-width":3}))}
+ function ok(){return "var(--ok)"}
+ svg.appendChild(el("circle",{cx:X,cy:y,r:9,fill:"var(--ac)",stroke:"#fff","stroke-width":2}));
+ svg.appendChild(el("text",{x:Math.min(Math.max(X,70),730),y:y-70,"text-anchor":"middle",fill:"var(--ac)","font-size":22,"font-weight":700},fmt(x)));
+ const nm=P.find(p=>p[0]==k)[1];
+ let t=`Luku ${fmt(x)} on lukujen ${fmt(c.lo)} ja ${fmt(c.hi)} välissä. Puoliväli on ${fmt(c.mid)}.`;
+ if(!prac)t+=` Luku on ${c.fr>=.5?(c.fr>.5?"puolivälin jälkeen":"täsmälleen puolivälissä"):"ennen puoliväliä"}, joten se pyöristyy ${c.up?"ylös":"alas"}: <b>${fmt(c.rd)}</b>.`;
+ else t+=` Kumpaan se on lähempänä?`;
+ $("expl").innerHTML=`Pyöristetään <b>${nm}</b>. `+t;
+ const tb=$("tb");tb.innerHTML="";
+ P.forEach(([kk,n])=>{const d=calc(kk),tr=document.createElement("tr");if(kk==k)tr.className="sel";
+  tr.innerHTML=`<td>${n}</td><td class="dn">${fmt(d.lo)}</td><td class="upc">${fmt(d.hi)}</td><td>${fmt(d.mid)}</td><td>${prac?"?":fmt(d.rd)+(d.up?" ↑":" ↓")}</td>`;
+  tr.onclick=()=>{k=kk;sel.value=k;$("fb").textContent="";draw()};tb.appendChild(tr)})}
+function setX(v){x=v;$("num").value=fmt(v);draw()}
+$("num").addEventListener("input",e=>{const v=parse(e.target.value);if(v!=null){x=v;$("fb").textContent="";draw()}});
+sel.onchange=()=>{k=+sel.value;$("fb").textContent="";draw()};
+$("rnd").onclick=()=>{const d=Math.floor(Math.random()*4)+1,m=Math.pow(10,d);
+ const v=Math.floor(Math.random()*Math.pow(10,Math.floor(Math.random()*4)+1)*m)/m;setX(v);$("fb").textContent="";$("guess").value=""};
+$("prac").onchange=()=>{$("ans").style.display=$("prac").checked?"flex":"none";$("fb").textContent="";draw()};
+$("chk").onclick=()=>{const g=parse($("guess").value),c=calc(k),f=$("fb");
+ if(g==null){f.textContent="Kirjoita vastaus.";f.style.color="var(--mut)";return}
+ if(Math.abs(g-c.rd)<1e-9){f.textContent="Oikein! ✓";f.style.color="var(--ok)"}
+ else{f.textContent="Ei vielä oikein. Mieti, kumpaa päätä luku on lähempänä.";f.style.color="var(--bad)"}};
+const svgEl=$("nl");let drag=false;
+function mv(e){const r=svgEl.getBoundingClientRect(),c=calc(k);
+ let f=((e.clientX-r.left)/r.width*800-50)/700;f=Math.min(1,Math.max(0,f));
+ setX(r12(c.lo+Math.round(f*100)/100*(c.hi-c.lo)))}
+svgEl.addEventListener("pointerdown",e=>{drag=true;svgEl.setPointerCapture(e.pointerId);mv(e)});
+svgEl.addEventListener("pointermove",e=>{if(drag)mv(e)});
+svgEl.addEventListener("pointerup",()=>drag=false);
+draw();
+</script>
+</body>
+</html>
